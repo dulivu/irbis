@@ -7,7 +7,7 @@ Fácil de utilizar y enfocado al desarrollo modular conjuntamente con el patrón
 + La clase principal "Server" debe ser incluida en su archivo principal 'index.php'.
 + Cada módulo de su aplicación llevará un controlador principal, que será agregado a su instancia servidor.
 
-*Index.php*
+*index.php*
 ```php
 // solicitas el archivo "Server" del framework
 // para el ejemplo está en el directorio raiz
@@ -38,11 +38,11 @@ Un módulo es un directorio con un archivo controlador dentro, puede organizar c
 
 El controlador será una clase/objeto que la instancia 'Server' administrará. Debe heredar de la clase base \Irbis\Controller y podrá llevar métodos que representarán respuestas a rutas que el cliente pueda solicitar.
 
-*Controller.php*
+*\Test\Controller.php*
 ```php
 namespace Test;
 
-user Irbis\Controller as iController;
+use Irbis\Controller as iController;
 
 class Controller extends iController {
   // este atributo se debe declarar 'verdadero' le indica al controlador
@@ -63,4 +63,4 @@ La directiva '@route' en los comentarios indican a que ruta debe responder dicho
 
 Notese que la clase Controller del módulo está dentro de un espacio de nombres igual al nombre del directorio donde se encuentra, el auto-cargador utilizará el espacio de nombres igual que una ruta de directorio para buscar las clases no registradas y añadirlas a la ejecución.
 
-Con los pasos realizados hasta aquí, debería poder visualizar en su navegador las palabras "Hola mundo!".
+Con los pasos realizados hasta aquí, debería poder visualizar en su navegador las palabras "Hola mundo!" (...localhost).
