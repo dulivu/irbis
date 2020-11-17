@@ -64,3 +64,28 @@ La directiva '@route' en los comentarios indican a que ruta debe responder dicho
 Notese que la clase Controller del módulo está dentro de un espacio de nombres igual al nombre del directorio donde se encuentra, el auto-cargador utilizará el espacio de nombres igual que una ruta de directorio para buscar las clases no registradas y añadirlas a la ejecución.
 
 Con los pasos realizados hasta aquí, debería poder visualizar en su navegador las palabras "Hola mundo!" (...localhost).
+
+### Administrar peticiones y respuestas
+
+Cada método que responde a una petición cliente recibe 2 parámetros, **$request** y **$response** en ese orden. Si creamos un formulario html y este envia datos a una ruta estos datos podrán ser obtenidos por medio del objeto **$request**, y para enviar una vista en especifico al cliente podemos usar el objeto **$response**, entre otras carácteristicas.
+
+*/Test/views/index.html*
+```html
+<form method="POST">
+  <input type="text" name="username"/>
+  <input type="submit"/>
+</form>
+
+<span><?php echo $greeting ?? ''; ?></span>
+```
+*\Test\Controller.php*
+```php
+// Método 'Index' dentro de la clase 'Controller'
+public function index ($request, $response) {
+  if ($request->isMethod('POST')) {
+    $response->data['greeting'] = 'Hola '.$request->input('username');
+  }
+  
+  $response->view = '/Test/views/index.html';
+}
+```
