@@ -66,7 +66,7 @@ if (!defined("REQUEST_EMULATION")) define("REQUEST_EMULATION", false);
 | conexiones, debe ser un archivo .ini
 |
 */
-if (!defined("DB_INI")) define("DB_INI", '');
+if (!defined("DB_INI")) define("DB_INI", 'database.ini');
 
 /*
 |--------------------------------------------------------------------------
