@@ -178,7 +178,7 @@ pass = root
 El método getInstance(), es estático y devuelve la conexión a base de datos cuyo nombre haya sido declarado en el archivo de configuración 'database.ini', puede declarar diferentes conexiones e invocarlas cada una con su respectivo nombre. Esta clase implementa un tipo de patrón Singleton por lo que si se vuelve a invocar una conexión, esta no se vuelve a crear, simplemente devuelve la instancia previamente creada.
 
 ## Modularidad
-Finalmente el objetivo del framwework es la modularidad, poder generar código a través de capas de módulos evitando en mayor medida la modificación de código previo. Para el ejemplo agregaremos otro módulo que sobreescribirá la ruta /users y añadirá un formulario para agregar usuarios. Primero creamos un nuevo directorio 'Test2' (el nuevo módulo) y dentro un archivo controlador 'Controller.php'. Quedando nuestro proyecto de la siguiente forma:
+Finalmente el objetivo del framwework es la modularidad, poder generar código a través de capas de módulos, evitando en mayor medida la modificación de código previo. Para el ejemplo agregaremos otro módulo que sobreescribirá la ruta '/users' y añadirá un formulario para agregar usuarios. Primero creamos un nuevo directorio 'Test2' (el nuevo módulo) y dentro un archivo controlador 'Controller.php'. Quedando nuestro proyecto de la siguiente forma:
 
 *directorio*
 - Irbis
@@ -187,7 +187,7 @@ Finalmente el objetivo del framwework es la modularidad, poder generar código a
   - views
     - users.html
   - Controller.php
- index.php
+- index.php
  
  *index.php*
  ```php
