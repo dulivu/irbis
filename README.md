@@ -167,10 +167,10 @@ user = root
 pass = root  
 
 *Para apache puedes usar la siguiente regla de seguridad, para evitar el acceso a archivos de configuración*
-<Files ~ "\.ini$">
-	Order allow,deny
-	Deny from all
-</Files>
+<Files ~ "\.ini$">  
+  Order allow,deny  
+  Deny from all  
+</Files>  
 
 El método getInstance(), es estático y devuelve la conexión a base de datos cuyo nombre haya sido declarado en el archivo de configuración 'database.ini', puede declarar diferentes conexiones e invocarlas cada una con su respectivo nombre. Esta clase implementa un tipo de patrón Singleton por lo que si se vuelve a invocar una conexión, esta no se vuelve a crear, simplemente devuelve la instancia previamente creada.
 
