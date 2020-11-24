@@ -242,5 +242,10 @@ class Controller extends iController {
 
 <?php include('Test/views/users.html'); ?>
 ```
+De esta forma, si el nuevo módulo presentara algún problema de código o quisieramos regresar el sistema a una versión anterior, simplemente comentamos la línea donde se agrega este nuevo módulo y todo funcionaría como antes.
+
+```php
+# $server->addController(new \Test2\Controller);
+```
 
 **Observaciones:** es importante el orden en el que se agregan los módulos al sistema, los métodos enrutados del último módulo agregado tendrán preferencia para responder al cliente, al llamar al método 'respond()' nuevamente, irá ejecutando cada método para esa ruta en orden inverso. No es obligatorio llamar al método 'respond()', esto se hace cuando queremos ejecutar lógica previa.
