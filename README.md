@@ -39,7 +39,7 @@ Un módulo es un directorio con un archivo controlador dentro, puede organizar c
 
 El controlador será una clase/objeto que la instancia 'Server' administrará. Debe heredar de la clase base \Irbis\Controller y podrá llevar métodos que respondan a rutas que el cliente pueda solicitar.
 
-*\Test\Controller.php*
+*/Test/Controller.php*
 ```php
 namespace Test;
 
@@ -78,7 +78,7 @@ Cada método que responde a una petición cliente recibe 2 parámetros, **$reque
 
 <span><?php echo $greeting ?? ''; ?></span>
 ```
-*\Test\Controller.php*
+*/Test/Controller.php*
 ```php
 // Método 'Index' dentro de la clase 'Controller'
 public function index ($request, $response) {
@@ -86,7 +86,7 @@ public function index ($request, $response) {
     $response->data['greeting'] = 'Hola '.$request->input('username');
   }
   
-  $response->view = '/Test/views/index.html';
+  $response->view = 'Test/views/index.html';
 }
 ```
 
@@ -120,7 +120,7 @@ Se utiliza una clase que extiende de la clase PDO, por lo que puede conectar a d
 </table>
 ```
 
-*\Test\Controller.php*
+*/Test/Controller.php*
 ```php
 namespace Test;
 
@@ -139,7 +139,7 @@ class Controller extends iController {
       $response->data['greeting'] = 'Hola '.$request->input('username');
     }
 
-    $response->view = '/Test/views/index.html';
+    $response->view = 'Test/views/index.html';
   }
   
   /**
@@ -151,7 +151,7 @@ class Controller extends iController {
     $stmt = $db->query("SELECT * FROM `users`");
     
     $response->data['users'] = $stmt->fetchAll();
-    $response->view = '/Test/views/users.html';
+    $response->view = 'Test/views/users.html';
   }
 }
 ```
@@ -178,4 +178,68 @@ pass = root
 El método getInstance(), es estático y devuelve la conexión a base de datos cuyo nombre haya sido declarado en el archivo de configuración 'database.ini', puede declarar diferentes conexiones e invocarlas cada una con su respectivo nombre. Esta clase implementa un tipo de patrón Singleton por lo que si se vuelve a invocar una conexión, esta no se vuelve a crear, simplemente devuelve la instancia previamente creada.
 
 ## Modularidad
-Finalmente el objetivo del framwework es la modularidad, poder generar código a través de capas de módulos evitando en mayor medida la modificación del código anterior.
+Finalmente el objetivo del framwework es la modularidad, poder generar código a través de capas de módulos evitando en mayor medida la modificación de código previo. Para el ejemplo agregaremos otro módulo que sobreescribirá la ruta /users y añadirá un formulario para agregar usuarios. Primero creamos un nuevo directorio 'Test2' (el nuevo módulo) y dentro un archivo controlador 'Controller.php'. Quedando nuestro proyecto de la siguiente forma:
+
+*directorio*
+- Irbis
+- Test
+- Test2
+  - views
+    - users.html
+  - Controller.php
+ index.php
+ 
+ *index.php*
+ ```php
+require('Irbis/Server.php');
+
+$server = \Irbis\Server::getInstance();
+
+$server->addController(new \Test\Controller);
+$server->addController(new \Test2\Controller);
+
+$server->respond();
+ ```
+ 
+*/Test2/Controller.php*
+```php
+namespace Test2;
+
+use Irbis\Controller as iController;
+use Irbis\DataBase as DB;
+
+class Controller extends iController {
+  public $routes = true;
+  
+  /**
+   * el método responderá a la misma ruta que en el otro controlador
+   * @route /users
+   */
+  public function users ($request, $response) {
+    $db = DB::getInstance('main');
+
+    if ($request->isMethod('POST')) {
+      $stmt = $db->prepare("INSERT INTO `users` VALUES (?, ?, ?)");
+      $stmt->execute($request->input(['nombre', 'apellido', 'telefono']));
+    }
+    // por medio de este método ejecutamos la lógica anterior y obtenemos el objeto
+    // $response del otro controlador, por último le cambiamos la vista por la nueva
+    $response = $this->getServer()->respond();
+    $response->view = 'Test2/views/users.html';
+  }
+}
+```
+
+*/Test2/views/users.html*
+```html
+<form method="POST">
+	<p>Nombre: <input type="text" name="nombre"/></p>
+	<p>Apellido: <input type="text" name="apellido"/></p>
+	<p>Telefono: <input type="text" name="telefono"/></p>
+	<p><input type="submit"/></p>
+</form>
+
+<?php include('Test/views/users.html'); ?>
+```
+
+**Observaciones:** es importante el orden en el que se agregan los módulos al sistema, los métodos enrutados del último módulo agregado tendrán preferencia para responder al cliente, al llamar al método 'respond()' nuevamente, irá ejecutando cada método para esa ruta en orden inverso. No es obligatorio llamar al método 'respond()', esto se hace cuando queremos ejecutar lógica previa.
