@@ -222,10 +222,11 @@ class Controller extends iController {
       $stmt = $db->prepare("INSERT INTO `users` VALUES (?, ?, ?)");
       $stmt->execute($request->input(['nombre', 'apellido', 'telefono']));
     }
-    // por medio de este método ejecutamos la lógica anterior y obtenemos el objeto
-    // $response del otro controlador, por último le cambiamos la vista por la nueva
+    // por medio de este método ejecutamos la lógica anterior y obtenemos el objeto $response del otro
+    // controlador, por último le cambiamos la vista por la nueva y devolvemos el nuevo objeto $response
     $response = $this->getServer()->respond();
     $response->view = 'Test2/views/users.html';
+    return $response;
   }
 }
 ```
