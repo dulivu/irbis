@@ -188,6 +188,7 @@ Finalmente el objetivo del framwework es la modularidad, poder generar código a
     - users.html
   - Controller.php
 - index.php
+- database.ini
  
  *index.php*
  ```php
