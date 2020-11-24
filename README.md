@@ -34,7 +34,7 @@ Un módulo básico comprende un directorio con un archivo controlador, ejemplo:
   - Controller.php
 - index.php (punto de entrada)
 
-### Módulo, Controlador y el Auto-Cargador
+## Módulo, Controlador y el Auto-Cargador
 Un módulo es un directorio con un archivo controlador dentro, puede organizar cada módulo con sus propios sub-directorios y archivos; por ejemplo, un carpeta 'views' donde guarde todas las vistas que utilize su módulo.
 
 El controlador será una clase/objeto que la instancia 'Server' administrará. Debe heredar de la clase base \Irbis\Controller y podrá llevar métodos que respondan a rutas que el cliente pueda solicitar.
@@ -66,7 +66,7 @@ Notese que la clase Controller del módulo está dentro de un espacio de nombres
 
 Con los pasos realizados hasta aquí, debería poder visualizar en su navegador las palabras "Hola mundo!" (...localhost).
 
-### Administrar peticiones y respuestas
+## Administrar peticiones y respuestas
 Cada método que responde a una petición cliente recibe 2 parámetros, **$request** y **$response** en ese orden. Si creamos un formulario html y este envia datos a una ruta, estos datos se obtienen por medio del objeto **$request**, y para enviar una vista especifica al cliente usamos el objeto **$response**, entre otras carácteristicas.
 
 */Test/views/index.html*
@@ -108,15 +108,15 @@ Se utiliza una clase que extiende de la clase PDO, por lo que puede conectar a d
 */Test/views/users.html*
 ```html
 <table>
-	<tbody>
-		<?php foreach ($users as $user): ?>
-			<tr>
-				<td><?= $user['nombre'] ?></td>
-				<td><?= $user['apellido'] ?></td>
-				<td><?= $user['telefono'] ?></td>
-			</tr>
-		<?php endforeach; ?>
-	</tbody>
+  <tbody>
+    <?php foreach ($users as $user): ?>
+      <tr>
+        <td><?= $user['nombre'] ?></td>
+        <td><?= $user['apellido'] ?></td>
+        <td><?= $user['telefono'] ?></td>
+      </tr>
+    <?php endforeach; ?>
+  </tbody>
 </table>
 ```
 
@@ -161,9 +161,10 @@ Previamente deberemos tener un archivo de configuración (database.ini) en la ra
 
 *database.ini*
 [main]
-dsn = "mysql:host=127.0.0.1;dbname=test"
-user = root
-pass = root
+
+dsn = "mysql:host=127.0.0.1;dbname=test"  
+user = root  
+pass = root  
 
 *Para apache puedes usar la siguiente regla de seguridad, para evitar el acceso a archivos de configuración*
 <Files ~ "\.ini$">
