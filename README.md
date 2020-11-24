@@ -234,10 +234,10 @@ class Controller extends iController {
 */Test2/views/users.html*
 ```html
 <form method="POST">
-	<p>Nombre: <input type="text" name="nombre"/></p>
-	<p>Apellido: <input type="text" name="apellido"/></p>
-	<p>Telefono: <input type="text" name="telefono"/></p>
-	<p><input type="submit"/></p>
+  <p>Nombre: <input type="text" name="nombre"/></p>
+  <p>Apellido: <input type="text" name="apellido"/></p>
+  <p>Telefono: <input type="text" name="telefono"/></p>
+  <p><input type="submit"/></p>
 </form>
 
 <?php include('Test/views/users.html'); ?>
