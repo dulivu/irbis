@@ -49,7 +49,7 @@ class DataBase extends \PDO {
 			return self::$instances[$name];
 		
 		if (!$o) {
-			$ini = @parse_ini_file(DB_INI, true);
+			$ini = @parse_ini_file(DBINI, true);
 			$o = $ini[$name] ?? null;
 		}
 
