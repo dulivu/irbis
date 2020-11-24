@@ -166,7 +166,7 @@ dsn = "mysql:host=127.0.0.1;dbname=test"
 user = root  
 pass = root  
 
-*Para apache puedes usar la siguiente regla de seguridad, para evitar el acceso a archivos de configuración*
+*Para apache puedes usar la siguiente regla de seguridad, para evitar el acceso a archivos de configuración*  
 <Files ~ "\.ini$">  
   Order allow,deny  
   Deny from all  
