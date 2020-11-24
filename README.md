@@ -160,11 +160,12 @@ Para el ejemplo, si accedemos en local a 'http://localhost/index.php/users', pod
 Previamente deberemos tener un archivo de configuración (database.ini) en la raíz de nuestro proyecto, **Se recomienda utilizar reglas de acceso en el servidor web para evitar el acceso accidental a estos archivos por seguridad.**
 
 *database.ini*
+```html
 [main]
-
 dsn = "mysql:host=127.0.0.1;dbname=test"  
 user = root  
 pass = root  
+```
 
 *Para apache puedes usar la siguiente regla de seguridad, para evitar el acceso a archivos de configuración*
 ```html
