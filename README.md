@@ -293,10 +293,10 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php?$1 [QSA,L]
 ```
 
-**DB_INI** (por defecto, 'database.ini'), indica la ruta donde se encuentra el archivo de configuracion de base de datos.
-**REQUEST_EMULATION** (por defecto, falso), si es verdadero el método $request->isMethod(*[string]*) validará también verbos PUT y DELETE que vayan en el cuerpo del documento en una variable '\_method'.
-**DEBUG_MODE** (por defecto, falso), si es verdadero se muestra más información de errores en las respuestas.
-**DEFAULT_VIEW** (por defecto, 'index'), es el valor por defecto que se usa en los métodos $request->query('view') ó $request->path(0), útil para cargar vistas.
-**BASE_PATH** (por defecto, la ruta donde se encuentra la aplicación), no se recomienda cambiar este valor.
-**CRYP_KEY**, clave a usar en los métodos de encriptación y desencriptación.
-**CRYP_METHOD**, método de encriptación a utilizar.
+**DB_INI** (por defecto, 'database.ini'), indica la ruta donde se encuentra el archivo de configuracion de base de datos.  
+**REQUEST_EMULATION** (por defecto, falso), si es verdadero el método $request->isMethod(*[string]*) validará también verbos PUT y DELETE que vayan en el cuerpo del documento en una variable '\_method'.  
+**DEBUG_MODE** (por defecto, falso), si es verdadero se muestra más información de errores en las respuestas.  
+**DEFAULT_VIEW** (por defecto, 'index'), es el valor por defecto que se usa en los métodos $request->query('view') ó $request->path(0), útil para cargar vistas.  
+**BASE_PATH** (por defecto, la ruta donde se encuentra la aplicación), no se recomienda cambiar este valor.  
+**CRYP_KEY**, clave a usar en los métodos de encriptación y desencriptación.  
+**CRYP_METHOD**, método de encriptación a utilizar.  
