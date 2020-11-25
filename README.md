@@ -72,9 +72,9 @@ Los métodos que responden a una ruta solicitada por el cliente se declaran con 
 @route / => enruta a la raiz del dominio (pj. http://localhost ó http://localhost/index.php).  
 @route /users => enruta a una dirección (pj. http://localhost/index.php/users).  
 *se puede prescindir de 'index.php' si se configura apache o el respectivo servidor y se activa MOD_REWRITE = true*.  
-@route /users/(:num), para números, enruta a una dirección de tipo http://localhost/index.php/users/**1**.  
-@route /users/(:any), para cadenas o números, enruta a una dirección de tipo http://localhost/index.php/users/**jhon**.  
-@route /users/(:all), para cadenas o números (incluido el signo '/'), enruta a una dirección tipo http://localhost/index.php/users/**jhon/5/admin**.  
+@route /users/(:num), para números, enruta a una dirección de tipo http://localhost/index.php/users/1.  
+@route /users/(:any), para cadenas o números, enruta a una dirección de tipo http://localhost/index.php/users/jhon.  
+@route /users/(:all), para cadenas o números (incluido el signo '/'), enruta a una dirección tipo http://localhost/index.php/users/jhon/5/admin.  
 
 Si nuestro método responde a una ruta relativa, podemos obtener el valor del comodin con el objeto $request y su método 'path'.
 
