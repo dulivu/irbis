@@ -66,6 +66,24 @@ Notese que la clase Controller del módulo está dentro de un espacio de nombres
 
 Con los pasos realizados hasta aquí, debería poder visualizar en su navegador las palabras "Hola mundo!" (...localhost).
 
+## Métodos enrutados
+Los métodos que responden a una ruta solicitada por el cliente se declaran con una directiva (@route) en los comentarios del mismo, el valor que sigue a la directiva es la ruta, existen 3 comodines que se pueden usar para rutas relativas. Ejem.
+
+@route / => enruta a la raiz del dominio (pj. http://localhost ó http://localhost/index.php).  
+@route /users => enruta a una dirección (pj. http://localhost/index.php/users).  
+*se puede prescindir de 'index.php' si se configura apache o el respectivo servidor y se activa MOD_REWRITE = true*.  
+@route /users/(:num), para números, enruta a una dirección de tipo http://localhost/index.php/users/**1**.  
+@route /users/(:any), para cadenas o números, enruta a una dirección de tipo http://localhost/index.php/users/**jhon**.  
+@route /users/(:all), para cadenas o números (incluido el signo '/'), enruta a una dirección tipo http://localhost/index.php/users/**jhon/5/admin**.  
+
+Si nuestro método responde a una ruta relativa, podemos obtener el valor del comodin con el objeto $request y su método 'path'.
+
+```php
+$request->path(0); // 1 para el ejemplo 3
+$request->path(0); // 'jhon' para el ejemplo 4
+$request->path(0); // 'jhon/5/admin' para el ejemplo 5
+```
+
 ## Administrar peticiones y respuestas
 Cada método que responde a una petición cliente recibe 2 parámetros, **$request** y **$response** en ese orden. Si creamos un formulario html y este envia datos a una ruta, estos datos se obtienen por medio del objeto **$request**, y para enviar una vista especifica al cliente usamos el objeto **$response**, entre otras carácteristicas.
 
@@ -250,3 +268,35 @@ De esta forma, si el nuevo módulo presentara algún problema de código o quisi
 ```
 
 **Observaciones:** es importante el orden en el que se agregan los módulos al sistema, los métodos enrutados del último módulo agregado tendrán preferencia para responder al cliente, al llamar al método 'respond()' nuevamente, irá ejecutando cada método para esa ruta en orden inverso. No es obligatorio llamar al método 'respond()', esto se hace cuando queremos ejecutar lógica previa.
+
+## Constantes
+El framework declara algunas constantes en caso estas no hayan sido previamente declaradas, podemos controlar su valor en nuestro archivo de entrada 'index.php', deberemos declararlas antes de llamar a nuestro archivo principal 'server.php'. Estas sirven para modificar algunos comportamientos del framework.
+
+*index.php*
+```php
+// aquí podremos declarar nuestras constantes.
+define('MOD_REWRITE', true);
+require('Irbis/Server.php');
+$server = \Irbis\Server::getInstance();
+$server->addController(new \Test\Controller);
+$server->respond();
+```
+
+**MOD_REWRITE** (por defecto, falso), si es verdadero las rutas no requerirán que se declare explicitamente el archivo 'index.php', para esta característica primero se debe configurar su servidor (para apache el archivo .htaccess por ejemplo).
+
+*.htaccess*
+```html
+Options +FollowSymLinks
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php?$1 [QSA,L]
+```
+
+**DB_INI** (por defecto, 'database.ini'), indica la ruta donde se encuentra el archivo de configuracion de base de datos.
+**REQUEST_EMULATION** (por defecto, falso), si es verdadero el método $request->isMethod(*[string]*) validará también verbos PUT y DELETE que vayan en el cuerpo del documento en una variable '\_method'.
+**DEBUG_MODE** (por defecto, falso), si es verdadero se muestra más información de errores en las respuestas.
+**DEFAULT_VIEW** (por defecto, 'index'), es el valor por defecto que se usa en los métodos $request->query('view') ó $request->path(0), útil para cargar vistas.
+**BASE_PATH** (por defecto, la ruta donde se encuentra la aplicación), no se recomienda cambiar este valor.
+**CRYP_KEY**, clave a usar en los métodos de encriptación y desencriptación.
+**CRYP_METHOD**, método de encriptación a utilizar.
