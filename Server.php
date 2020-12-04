@@ -24,13 +24,13 @@ class Server {
 	 * Vista por defecto para errores 404
 	 * @var string
 	 */
-	public $view_404 = '/Irbis/404.html';
+	public $view_404 = 'Irbis/404.html';
 
 	/**
 	 * Visto por defecto para errores 500
 	 * @var string
 	 */
-	public $view_500 = '/Irbis/500.html';
+	public $view_500 = 'Irbis/500.html';
 
 	/**
 	 * Función de renderizado
