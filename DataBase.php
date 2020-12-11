@@ -62,4 +62,12 @@ class DataBase extends \PDO {
 
 		return self::$instances[$name];
 	}
+	
+	/**
+	 * Devuelve el nombre de la base de datos
+	 * @return string
+	 */
+	public function dbName () {
+		return parent::query('select database()')->fetchColumn();
+	}
 }
