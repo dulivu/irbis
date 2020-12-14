@@ -19,7 +19,7 @@ En cada módulo añadiremos un directorio llamado 'models' y dentro de este dire
 Nuestra estructura de datos es un arreglo asociativo, donde cada par clave/valor corresponde a miembro/definición, a continuación declararemos un modelo 'users' básico para poder realizar un login.
 
 *Test/models/users.php*
-´´´php
+```php
 <?php
 // Model: users
 return [
@@ -34,6 +34,6 @@ return [
     return password_verify($userpass, $this->userpass);
   }
 ];
-´´´
+```
 
 Hay dos tipos de miembros dentro la estructura. Propiedad, representa una columna dentro de una tabla de base de datos con su tipo de datos respectivo entre otras carácteristicas. Método, representa las acciones que el modelo puede realizar, tiene acceso a sus propiedades y otros métodos como si de un objeto se tratasen. Finalmente este arreglo asociativo se devuelve por medio de la palabra reservada 'return'.
