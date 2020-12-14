@@ -129,9 +129,9 @@ Se utiliza una clase que extiende de la clase PDO, por lo que puede conectar a d
   <tbody>
     <?php foreach ($persons as $person): ?>
       <tr>
-        <td><?= $user['nombre'] ?></td>
-        <td><?= $user['apellido'] ?></td>
-        <td><?= $user['telefono'] ?></td>
+        <td><?= $person['nombre'] ?></td>
+        <td><?= $person['apellido'] ?></td>
+        <td><?= $person['telefono'] ?></td>
       </tr>
     <?php endforeach; ?>
   </tbody>
@@ -161,7 +161,7 @@ class Controller extends iController {
   }
   
   /**
-   * Debe tener una base de datos y una tabla llamada 'users' con registros
+   * Debe tener una base de datos y una tabla llamada 'persons' con registros
    * @route /persons
    */
   public function persons ($request, $response) {
@@ -169,7 +169,7 @@ class Controller extends iController {
     $stmt = $db->query("SELECT * FROM `persons`");
     
     $response->data['persons'] = $stmt->fetchAll();
-    $response->view = 'Test/views/users.html';
+    $response->view = 'Test/views/persons.html';
   }
 }
 ```
