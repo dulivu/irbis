@@ -123,11 +123,11 @@ El objeto $response tiene dos atributos principales, **$view** que indica la rut
 ## Conexión a base de datos
 Se utiliza una clase que extiende de la clase PDO, por lo que puede conectar a diferentes motores de bases de datos dependiendo de cuales tenga implementados, para el ejemplo lo haremos con MySQL.
 
-*/Test/views/users.html*
+*/Test/views/persons.html*
 ```html
 <table>
   <tbody>
-    <?php foreach ($users as $user): ?>
+    <?php foreach ($persons as $person): ?>
       <tr>
         <td><?= $user['nombre'] ?></td>
         <td><?= $user['apellido'] ?></td>
@@ -162,18 +162,18 @@ class Controller extends iController {
   
   /**
    * Debe tener una base de datos y una tabla llamada 'users' con registros
-   * @route /users
+   * @route /persons
    */
-  public function users ($request, $response) {
+  public function persons ($request, $response) {
     $db = DB::getInstance('main');
-    $stmt = $db->query("SELECT * FROM `users`");
+    $stmt = $db->query("SELECT * FROM `persons`");
     
-    $response->data['users'] = $stmt->fetchAll();
+    $response->data['persons'] = $stmt->fetchAll();
     $response->view = 'Test/views/users.html';
   }
 }
 ```
-Para el ejemplo, si accedemos en local a 'http://localhost/index.php/users', podremos visualizar la lista de usuarios como se programó.
+Para el ejemplo, si accedemos en local a 'http://localhost/index.php/persons', podremos visualizar la lista de usuarios como se programó.
 
 Previamente deberemos tener un archivo de configuración (database.ini) en la raíz de nuestro proyecto, **Se recomienda utilizar reglas de acceso en el servidor web para evitar el acceso accidental a estos archivos por seguridad.**
 
@@ -203,7 +203,7 @@ Finalmente el objetivo del framwework es la modularidad, poder generar código a
 - Test
 - Test2
   - views
-    - users.html
+    - persons.html
   - Controller.php
 - index.php
 - database.ini
@@ -232,25 +232,25 @@ class Controller extends iController {
   
   /**
    * el método responderá a la misma ruta que en el otro controlador
-   * @route /users
+   * @route /persons
    */
-  public function users ($request, $response) {
+  public function persons ($request, $response) {
     $db = DB::getInstance('main');
 
     if ($request->isMethod('POST')) {
-      $stmt = $db->prepare("INSERT INTO `users` VALUES (?, ?, ?)");
+      $stmt = $db->prepare("INSERT INTO `persons` VALUES (?, ?, ?)");
       $stmt->execute($request->input(['nombre', 'apellido', 'telefono']));
     }
     // por medio de este método ejecutamos la lógica anterior y obtenemos el objeto $response del otro
     // controlador, por último le cambiamos la vista por la nueva y devolvemos el nuevo objeto $response
     $response = $this->getServer()->respond();
-    $response->view = 'Test2/views/users.html';
+    $response->view = 'Test2/views/persons.html';
     return $response;
   }
 }
 ```
 
-*/Test2/views/users.html*
+*/Test2/views/persons.html*
 ```html
 <form method="POST">
   <p>Nombre: <input type="text" name="nombre"/></p>
@@ -259,7 +259,7 @@ class Controller extends iController {
   <p><input type="submit"/></p>
 </form>
 
-<?php include('Test/views/users.html'); ?>
+<?php include('Test/views/persons.html'); ?>
 ```
 De esta forma, si el nuevo módulo presentara algún problema de código o quisieramos regresar el sistema a una versión anterior, simplemente comentamos la línea donde se agrega este nuevo módulo y todo funcionaría como antes.
 
