@@ -147,3 +147,52 @@ $users->select([1,2,3]); // captura los registros con id = 1,2,3
 $users[0]->delete(); // elimina sólo el registro con id = 1
 $users->delete(); // elimina todos los registros capturados (1,2,3)
 ```
+## Relaciones
+El modelo intregra 3 tipos de campos especiales para relaciones entre modelos.  
+
+**Muchos a uno**, el campo será de tipo 'n1' y deberá tener un atributo 'target' que apunte al modelo relacionado.
+```php
+// model: groups
+return [
+  'groupname' => ['varchar']
+];
+```
+
+```php
+// model: users
+return [
+  'username' => ['varchar'., 'required' => true],
+  'group' => ['n1', 'target' => 'groups'] // previamente se deberá definir el modelo 'groups'
+];
+```
+
+```php
+$users = new RecordSet('users');
+// creará un nuevo registro en 'groups' para el nuevo grupo
+$users->insert(['username' => 'Jhon', 'group' => ['groupname' => 'admins']]);
+$users[0]->group->groupname; // devolverá 'admins'
+
+// capturará el registro con id 1 de 'groups' y lo asociará con el nuevo usuario
+$users->insert(['username' => 'Juan', 'group' => 1]);
+$users[1]->group->groupname; // devolverá 'admins'
+```
+
+**Uno a muchos**, el campo será de tipo '1n' y deberá tener un atributo 'target' que apunte al modelo relacionado y la columna relacionada. Este tipo de campo requiere que en el modelo relacionado exista un campo 'n1' contrario.
+```php
+// model: groups
+return [
+  'groupname' => ['varchar'],
+  'users' => ['1n', 'target' => 'users(group)']
+];
+```
+
+```php
+$groups = new RecordSet('groups');
+// creará un nuevo grupo y 2 nuevos usuarios relaciones a este grupo
+$groups->insert(['groupname' => 'portalusers', 'users' => [['username' => 'Pedro'], ['username' => 'Pablo']]]);
+$groups[0]->users; // devuelve otro conjunto de registros (RecordSet) con los usuarios relacionados a 'portalusers'
+
+// creará un nuevo grupo y relacionará a los usuarios con id 1,2 a este grupo
+$groups->insert(['groupname' => 'webusers', 'users' => [1,2]]);
+$groups[1]->users; // devuelve otro conjunto de registros (RecordSet) con los usuarios relacionados a 'webusers'
+```
