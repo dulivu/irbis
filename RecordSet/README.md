@@ -123,7 +123,7 @@ foreach ($users as $user) {
 ## Métodos DML
 Un objeto RecordSet tiene cuatro métodos principales para manipular información de la base de datos.
 
-**select**, permite capturar registros, puede recibir un entero (id) y arreglo de enteros (ids), ó un arreglo asociativo como filtros.
+**select**, permite capturar registros, puede recibir un entero (id), o un arreglo de enteros (ids), o un arreglo asociativo como filtros.
 ```php
 $users->select(); //captura todos los registros de la tabla
 $users->select(1); //captura el registro con id = 1
