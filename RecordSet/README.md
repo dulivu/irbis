@@ -1,4 +1,7 @@
 # RecordSet
+
+Por el momento sólo funciona con bases de datos MySQL o MariaDB.
+
 Conjunto de clases que permiten manipular registros de bases de datos como si fueran objetos, con propiedades y métodos. A continuación detallaremos el funcionamiento de estos por medio de un ejemplo, es necesario conocer la base del framework 'Irbis' y haber seguido los ejemplos ahí antes de continuar con este apartado.
 
 ## Creando la estructura de datos
