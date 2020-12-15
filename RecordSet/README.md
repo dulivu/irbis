@@ -81,9 +81,25 @@ Como vimos en el ejemplo podemos definir propiedades por medio de arreglos asoci
 'username' => ['varchar', 'required' => true, 'length' => 25, 'default' => 'Jhon'],
 'age' => ['int', 'store' => 'check_age']
 ```
-El primer valor (elemento 0) será el tipo de dato, los demás elementos con sus respectivas claves definirán otras carácteristicas de la propiedad.
-La clave 'store' permite ejecutar lógica con el valor entregado antes de almacenarlo, su valor será el nombre del método.
-La clave 'retrieve' permite ejecutar lógica con el valor almacenado antes de mostrarlo, su valor será el nombre del método.
+El primer valor (elemento 0) será el tipo de dato, los demás elementos con sus respectivas claves definirán otras carácteristicas de la propiedad.  
+La clave 'store' permite ejecutar lógica con el valor entregado antes de almacenarlo, su valor será el nombre del método.  
+La clave 'retrieve' permite ejecutar lógica con el valor almacenado antes de mostrarlo, su valor será el nombre del método.  
+```php
+// puede lanzar un error en el método 'check_age' si la edad es menor que 18
+// Ó si el método 'check_age' devuelve otro valor, este será el que se almacene en la base de datos al final
+'check_age' => function ($val) { return $val*2; }
+```
+```php
+$users = new RecordSet('users');
+$users->insert(['username' => 'Jhon', 'age' => 5]); 
+
+// en la base de datos verá
+// --------------------
+// |  username  | age |
+// --------------------
+// |   Jhon     |  10 |
+// --------------------
+```
 
 ## Miembros: Métodos
 Un método del modelo se definirá por medio de una función anónima, la clave será el nombre del método, se puede utilizar el identificar '$this' para hacer referencia a un registro en especifico.
@@ -92,7 +108,7 @@ Un método del modelo se definirá por medio de una función anónima, la clave 
   var_dump('Hola mi nombre es '. $this->username);
 }
 ```
-Para ejecutar los médotos del modelo se realizan a travez de cada registro único, la clase 'RecordSet' como su nombre indica es un conjunto de registros al que se pueden acceder como si de un arreglo se tratasen.
+Para ejecutar los métodos del modelo se realizan a travez de cada registro único, la clase 'RecordSet' como su nombre indica es un conjunto de registros al que se pueden acceder como si de un arreglo se tratasen.
 ```php
 $users = new RecordSet('users');
 $users->select();
@@ -106,14 +122,15 @@ Un objeto record set tiene cuatro métodos principales para manipular informaci�
 
 **select**, permite capturar registros, puede recibir un entero (id) y arreglo de enteros (ids), ó un arreglo asociativo como filtros.
 ```php
-$users->select(1); //id
-$users->select([1,2,3,5]); //ids
-$users->select(['username:like' => '%jhon%', 'age:>=' => 18]) // WHERE username like '%Jhon%' and age >= 18
+$users->select(); //captura todos los registros de la tabla
+$users->select(1); //captura el registro con id = 1
+$users->select([1,2,3,5]); //captura los registros con id = 1,2,3,5
+$users->select(['username:like' => '%jhon%', 'age:>=' => 18]) // captura los registros que cumplan => WHERE username like '%Jhon%' and age >= 18
 ```
 
-**insert**, permite insertar registros nuevos, recibe varios arreglos asociativos donde cada uno será un nuevo registro. Si algún valor no es enviado se considerará el valor por defecto o null.
+**insert**, permite insertar registros nuevos, recibe varios arreglos asociativos donde cada uno será un nuevo registro. Si algún valor no es enviado se considerará el valor por defecto o null. Los registros insertados se agregan al conjunto de registros actual.
 ```php
-$users->insert(['username' => 'Jhon', 'userpass' => '123', 'age' => 20], ['username' => 'Doe', 'userpass' => '456']);
+$users->insert(['username' => 'Jhon', 'userpass' => '123', 'age' => 20], ['username' => 'Doe', 'userpass' => '456'], ...);
 ```
 
 **update**, permite modificar campos de los registros capturados, si se llama sobre un conjunto de registros (RecordSet) la modificación se hará para todos los registros capturados.
