@@ -102,7 +102,7 @@ $users->insert(['username' => 'Jhon', 'age' => 5]);
 ```
 
 ## Miembros: Métodos
-Un método del modelo se definirá por medio de una función anónima, la clave será el nombre del método, se puede utilizar el identificar '$this' para hacer referencia a un registro en especifico.
+Un método del modelo se definirá por medio de una función anónima, la clave será el nombre del método, se puede utilizar el identificador '$this' para hacer referencia a un registro en especifico.
 ```php
 'sayHello' => function () {
   var_dump('Hola mi nombre es '. $this->username);
@@ -118,7 +118,7 @@ foreach ($users as $user) {
 }
 ```
 ## Métodos DML
-Un objeto record set tiene cuatro métodos principales para manipular información de la base de datos.
+Un objeto RecordSet tiene cuatro métodos principales para manipular información de la base de datos.
 
 **select**, permite capturar registros, puede recibir un entero (id) y arreglo de enteros (ids), ó un arreglo asociativo como filtros.
 ```php
