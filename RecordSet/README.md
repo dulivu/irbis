@@ -188,7 +188,7 @@ return [
 
 ```php
 $groups = new RecordSet('groups');
-// creará un nuevo grupo y 2 nuevos usuarios relaciones a este grupo
+// creará un nuevo grupo y 2 nuevos usuarios relacionados a este grupo
 $groups->insert(['groupname' => 'portalusers', 'users' => [['username' => 'Pedro'], ['username' => 'Pablo']]]);
 $groups[0]->users; // devuelve otro conjunto de registros (RecordSet) con los usuarios relacionados a 'portalusers'
 
@@ -196,3 +196,64 @@ $groups[0]->users; // devuelve otro conjunto de registros (RecordSet) con los us
 $groups->insert(['groupname' => 'webusers', 'users' => [1,2]]);
 $groups[1]->users; // devuelve otro conjunto de registros (RecordSet) con los usuarios relacionados a 'webusers'
 ```
+
+**Muchos a muchos**, el campo será de tipo 'nm' y deberá tener un atributo 'target' que apunte al modelo relacionado y la columna relacionada. Este tipo de campo requiere que en el modelo relacionado exista otro campo 'nm' contrario.
+```php
+// model: groups
+return [
+  'groupname' => ['varchar'],
+  'users' => ['nm', 'target' => 'users(groups)']
+];
+```
+```php
+// model: users
+return [
+  'username' => ['varchar'., 'required' => true],
+  'group' => ['nm', 'target' => 'groups(users)']
+];
+```
+
+```php
+$users = new RecordSet('users');
+$groups = new RecordSet('groups');
+
+// el proceso de creación es similar a los campos 1n, pero en este caso desde cualquier de los dos modelos se puede acceder a sus relacionados
+$users->insert(['username' => 'Jhon', 'groups' => [['groupname' => 'portalusers'], ['groupname' => 'webusers']]]);
+$groups->insert(['groupname' => 'externalusers', 'users' => [['username' => 'Pedro'], ['username' => 'Pablo']]]);
+```
+
+## Modularidad
+Tal como se explicó en la base del framework el objetivo modular también se cumple en los modelos, cada módulo puede tener un directorio 'models' y dentro tener la estructura de sus propios modelos. Pero, también es posible externder funcionalidad de un modelo desde otro módulo.
+
+Ejemplo, teniendo dos módulos 'Test' y 'Test2' ambos pueden estructurar un solo modelo 'users' uno amplía funcionalidad sobre el otro.
+
+*Test/models/users.php*
+```php
+return [
+  'username' => ['varchar'],
+  'userpass' => ['varchar'],
+  
+  'login' => function ($userpass) {
+    return $userpass == $this->userpass;
+  }
+]
+```
+
+*Test2/models/users.php*
+```php
+return [
+  'userpass' => ['store' => 'hash'],
+  'active' => ['boolean', 'default' => 1]
+  
+  'hash' => function ($value) {
+    return password_hash($value ?: uniqid(), PASSWORD_DEFAULT);
+  },
+  
+  'login' => function ($userpass) {
+    return password_verify($userpass, $this->userpass);
+  }
+]
+```
+Como se muestra en los ejemplos, nuestro primer módulo 'Test' implementa un modelo 'users' con nombre y contraseña pero sólo valida que las contraseñas ingresadas sean iguales lo que no es muy seguro. En el segundo módulo 'Test2' se extiende el modelo  'users', se agrega un campo 'active' y se modifica el campo 'userpass' para que haga un hash sobre la contraseña, por último se sobreescribe el método 'login' para que valide el hash.
+
+Si en algún momento quitamos el módulo 'Test2' el modelo 'users' sólo tendrá la funcionalidad y campos que el módulo 'Test' implementa.
