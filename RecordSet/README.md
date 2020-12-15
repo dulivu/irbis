@@ -8,7 +8,7 @@ En cada módulo añadiremos un directorio llamado 'models' y dentro de este dire
 - Irbis (framework)
 - Test (módulo)
   - models
-    - users.php
+    - users.php (model)
   - views
     - index.html
     - users.html
@@ -66,8 +66,67 @@ OJO: consideremos que la tabla 'users' no ha sido creada previamente, pero podem
  * @route /install
  */
 public function install ($request, $response) {
+  // el parámetro 'main' es el nombre de la conexión de base de datos
   $users = new RecordSet('users', 'main');
   $users->bind('main');
   return 'Modelos construidos';
 }
+```
+
+Realizado y entrando a la ruta 'http://localhost/index.php/install' la tabla 'users' ya debería existir en nuestra base de datos. Y en la ruta '/persons' al agregar una nueva persona veremos que también se ingresa un usuario automáticamente.
+
+## Miembros: Propiedades
+Como vimos en el ejemplo podemos definir propiedades por medio de arreglos asociativos.
+```php
+'username' => ['varchar', 'required' => true, 'length' => 25, 'default' => 'Jhon'],
+'age' => ['int', 'store' => 'check_age']
+```
+El primer valor (elemento 0) será el tipo de dato, los demás elementos con sus respectivas claves definirán otras carácteristicas de la propiedad.
+La clave 'store' permite ejecutar lógica con el valor entregado antes de almacenarlo, su valor será el nombre del método.
+La clave 'retrieve' permite ejecutar lógica con el valor almacenado antes de mostrarlo, su valor será el nombre del método.
+
+## Miembros: Métodos
+Un método del modelo se definirá por medio de una función anónima, la clave será el nombre del método, se puede utilizar el identificar '$this' para hacer referencia a un registro en especifico.
+```php
+'sayHello' => function () {
+  var_dump('Hola mi nombre es '. $this->username);
+}
+```
+Para ejecutar los médotos del modelo se realizan a travez de cada registro único, la clase 'RecordSet' como su nombre indica es un conjunto de registros al que se pueden acceder como si de un arreglo se tratasen.
+```php
+$users = new RecordSet('users');
+$users->select();
+
+foreach ($users as $user) {
+  $user->sayHello(); // Hola mi nombre es ...
+}
+```
+## Métodos DML
+Un objeto record set tiene cuatro métodos principales para manipular información de la base de datos.
+
+**select**, permite capturar registros, puede recibir un entero (id) y arreglo de enteros (ids), ó un arreglo asociativo como filtros.
+```php
+$users->select(1); //id
+$users->select([1,2,3,5]); //ids
+$users->select(['username:like' => '%jhon%', 'age:>=' => 18]) // WHERE username like '%Jhon%' and age >= 18
+```
+
+**insert**, permite insertar registros nuevos, recibe varios arreglos asociativos donde cada uno será un nuevo registro. Si algún valor no es enviado se considerará el valor por defecto o null.
+```php
+$users->insert(['username' => 'Jhon', 'userpass' => '123', 'age' => 20], ['username' => 'Doe', 'userpass' => '456']);
+```
+
+**update**, permite modificar campos de los registros capturados, si se llama sobre un conjunto de registros (RecordSet) la modificación se hará para todos los registros capturados.
+```php
+$users->select([1,2,3]) // captura los registros con id = 1,2,3
+$users->update(['username' => 'Pedro']); //modifica el campo 'username' para todos los registros capturados (1,2,3)
+$users[0]->update(['username' => 'Juan']); //modifica el campo 'username' sólo para el registro de id = 1
+$users[0]->username = 'Juan' //funciona igual que la linea anterior, pero para un campo a la vez.
+```
+
+**delete**, elimina los registros capturados en la base de datos.
+```php
+$users->select([1,2,3]); // captura los registros con id = 1,2,3
+$users[0]->delete(); // elimina sólo el registro con id = 1
+$users->delete(); // elimina todos los registros capturados (1,2,3)
 ```
