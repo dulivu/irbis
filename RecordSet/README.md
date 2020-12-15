@@ -226,9 +226,9 @@ $groups->insert(['groupname' => 'externalusers', 'users' => [['username' => 'Ped
 ```
 
 ## Modularidad
-Tal como se explicó en la base del framework el objetivo modular también se cumple en los modelos, cada módulo puede tener un directorio 'models' y dentro tener la estructura de sus propios modelos. Pero, también es posible externder funcionalidad de un modelo desde otro módulo.
+Tal como se explicó en la base del framework el objetivo modular también se cumple en los modelos, cada módulo puede tener un directorio 'models' y dentro tener la estructura de sus propios modelos. Pero, también es posible extender funcionalidad de un modelo desde otro módulo.
 
-Ejemplo, teniendo dos módulos 'Test' y 'Test2' ambos pueden estructurar un solo modelo 'users' uno amplía funcionalidad sobre el otro.
+Ejemplo, teniendo dos módulos 'Test' y 'Test2' ambos pueden estructurar un solo modelo 'users', uno amplía funcionalidad sobre el otro.
 
 *Test/models/users.php*
 ```php
