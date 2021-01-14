@@ -1,3 +1,12 @@
 {
-	"name": "dulivu/irbis"
+	"name": "dulivu/irbis",
+	"description": "Micro-Framework MVC",
+	"keywords": ["mvc", "framework", "irbis"],
+	"license": "GPL-3.0-only",
+	"authors": [
+		{
+			"name": "Jorge Luis Quico",
+			"email": "georgel1102@gmail.com"
+		}
+	],
 }
