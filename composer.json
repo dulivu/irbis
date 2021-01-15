@@ -11,12 +11,8 @@
 	],
 	"autoload": {
 		"psr-4": {
-			"Irbis\\": [
-				"dulivu/irbis/"
-			],
-			"Irbis\\RecordSet\\": [
-				"dulivu/irbis/RecordSet/"
-			]
+			"Irbis\\": "irbis/",
+			"Irbis\\RecordSet\\": "irbis/RecordSet/"
 		}
 	}
 }
