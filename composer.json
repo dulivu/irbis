@@ -12,6 +12,7 @@
 	"autoload": {
 		"psr-4": {
 			"Irbis\\": "irbis/",
+			"Irbis\\Traits\\": "irbis/Traits/",
 			"Irbis\\RecordSet\\": "irbis/RecordSet/"
 		}
 	}
