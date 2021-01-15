@@ -104,7 +104,7 @@ public function index ($request, $response) {
     $response->data['greeting'] = 'Hola '.$request->input('username');
   }
   
-  $response->view = 'Test/views/index.html';
+  $response->view = $this->dir.'/views/index.html';
 }
 ```
 
@@ -157,7 +157,7 @@ class Controller extends iController {
       $response->data['greeting'] = 'Hola '.$request->input('username');
     }
 
-    $response->view = 'Test/views/index.html';
+    $response->view = $this->dir.'/views/index.html';
   }
   
   /**
@@ -169,7 +169,7 @@ class Controller extends iController {
     $stmt = $db->query("SELECT * FROM `persons`");
     
     $response->data['persons'] = $stmt->fetchAll();
-    $response->view = 'Test/views/persons.html';
+    $response->view = $this->dir.'/views/persons.html';
   }
 }
 ```
@@ -244,7 +244,7 @@ class Controller extends iController {
     // por medio de este método ejecutamos la lógica anterior y obtenemos el objeto $response del otro
     // controlador, por último le cambiamos la vista por la nueva y devolvemos el nuevo objeto $response
     $response = $this->getServer()->respond();
-    $response->view = 'Test2/views/persons.html';
+    $response->view = $this->dir.'/views/persons.html';
     return $response;
   }
 }
