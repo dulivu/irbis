@@ -12,10 +12,10 @@
 	"autoload": {
 		"psr-4": {
 			"Irbis\\": [
-				"irbis/"
+				"dulivu/irbis/"
 			],
 			"Irbis\\RecordSet\\": [
-				"irbis/RecordSet/"
+				"dulivu/irbis/RecordSet/"
 			]
 		}
 	}
