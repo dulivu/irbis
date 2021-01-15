@@ -9,4 +9,14 @@
 			"email": "georgel1102@gmail.com"
 		}
 	],
+	"autoload": {
+		"psr-4": {
+			"Irbis\\": [
+				"irbis/"
+			],
+			"Irbis\\RecordSet\\": [
+				"irbis/RecordSet/"
+			]
+		}
+	}
 }
