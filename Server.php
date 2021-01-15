@@ -199,9 +199,9 @@ class Server {
 			$this->render : function ($__path__, $__data__) {
 				extract($__data__);
 				
-				if (!file_exists(BASE_PATH.$__path__)) 
+				if (!file_exists($__path__)) 
 					throw new \Exception("template '{$__path__}' not found");
-				include(BASE_PATH.$__path__);
+				include($__path__);
 			};
 	}
 
