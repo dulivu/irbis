@@ -202,7 +202,7 @@ class Controller extends iController {
     $response->data['persons'] = $stmt->fetchAll();
 
     // para devolver la ruta de la vista a usar, podemos usar
-    // la propieda del controlador '$dir' que es la ruta del
+    // la propieda del controlador '$dir' es la ruta del
     // directorio donde se encuetra el controlador actual
     $response->view = $this->dir.'/views/persons.html';
   }
@@ -247,6 +247,7 @@ Finalmente el objetivo del framwework es la modularidad, poder generar código a
 - database.ini (nuestro archivo de configuracion)
 
 En nuestro archivo 'index.php' registraremos nuestro nuevo módulo añadiendo su controlador respectivo.
+
 *index.php*
  ```php
 require('Irbis/Server.php');
@@ -341,7 +342,7 @@ $server->addController(new \Test\Controller);
 $server->respond();
 ```
 
-**MOD_REWRITE** (por defecto, falso), si es verdadero las rutas no requerirán que se declare explicitamente el archivo 'index.php', para esta característica primero se debe configurar su servidor (para apache el archivo .htaccess por ejemplo).
+**MOD_REWRITE** (por defecto, falso), si es verdadero las rutas no requerirán que se declare explicitamente el archivo 'index.php', para esta característica primero se debe configurar el servidor (para apache el archivo .htaccess por ejemplo).
 
 *.htaccess*
 ```html
@@ -353,7 +354,7 @@ RewriteRule ^ index.php?$1 [QSA,L]
 ```
 
 **DB_INI** (por defecto, 'database.ini'), indica la ruta donde se encuentra el archivo de configuracion de base de datos.  
-**REQUEST_EMULATION** (por defecto, falso), si es verdadero el método $request->isMethod(*[string]*) validará también verbos PUT y DELETE que vayan en el cuerpo del documento en una variable '\_method'.  
+**REQUEST_EMULATION** (por defecto, falso), si es verdadero el método $request->isMethod(*$string*) validará también verbos PUT y DELETE que vayan en el cuerpo del documento en una variable '\_method'.  
 **DEBUG_MODE** (por defecto, falso), si es verdadero se muestra más información de errores en las respuestas.  
 **DEFAULT_VIEW** (por defecto, 'index'), es posible devolver o asignar de forma dinámica la ruta de la vista a responder. el valor de esta constante se utilizará en caso no haya un valor enviado desde el cliente.
 
@@ -372,17 +373,24 @@ public function index ($request, $response) {
 
 ```php
 /**
- * @route /
+ * @route /(:all)
  */
 public function index ($request, $response) {
-  // la ruta de la vista se armará de forma dinámica en función de lo enviado por GET
-  // ejem. /?view=persons, la vista será /Test/persons.html
+  // la ruta de la vista se armará de forma dinámica en función de la petición
+  // ejem. /, la vista será /Test/index.html
+  // ejem. /persons, la vista será /Test/persons.html
+  // ejem. /users/jhon, la vista será /Test/users/jhon.html
   return '/Test/(0).html';
-  // si el valor de 'view' no es enviado se usará 'index' por defecto
-  // ejem. para / ó /?param=val la vista será /Test/index.html
+  // este caso sólo aplica para el comodín (:all) que captura todo lo registrado
+  // el comodín (:any) siempre buscará un valor, por lo que no coíncide con la ruta /
 }
 ```
 
 **BASE_PATH** (por defecto, el directorio donde se encuentra la aplicación), no se recomienda cambiar este valor.  
 **CRYP_KEY**, clave a usar en los métodos de encriptación y desencriptación.  
 **CRYP_METHOD**, método de encriptación a utilizar.  
+
+```php
+$val = encrypt('hola mundo'); // valor encriptado
+$val = decrypt($val); // recuperando valor
+```

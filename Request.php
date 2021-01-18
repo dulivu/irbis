@@ -127,7 +127,9 @@ class Request {
 		return self::getFromArray($_COOKIE, $key, $def);
 	}
 	public static function path ($key, $def = null) {
-		return self::getFromArray(self::$matchs, $key, $def);
+		$arr = self::$matchs;
+		if (isset($arr[0]) && $arr[0] === '') unset($arr[0]);
+		return self::getFromArray($arr, $key, $def);
 	}
 
 	/**
@@ -148,11 +150,16 @@ class Request {
 	private static function getFromArray ($arr, $key, $def) {
 		if ($key === '*') return $arr + (array) $def;
 		if (is_array($key)) {
-			$key = array_values($key);
-			$def = (array) $def;
-			return array_map(function ($i) use ($arr, $def) { 
-				return $arr[$i] ?? $def[$x] ?? null;
-			}, $key);
+			if (is_assoc($key)) {
+				$result = self::getFromArray($arr, array_keys($key), $key);
+				return array_combine(array_keys($key), $result);
+			} else {
+				$key = array_values($key);
+				$def = (array) $def;
+				return array_map(function ($i) use ($arr, $def) {
+					return $arr[$i] ?? $def[$i] ?? null;
+				}, $key);
+			}
 		}
 		return $arr[$key] ?? $def;
 	}
