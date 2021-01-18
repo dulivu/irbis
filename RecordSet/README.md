@@ -304,4 +304,4 @@ Como se muestra en los ejemplos, nuestro primer módulo 'Test' implementa un mod
 
 Si en algún momento quitamos el módulo 'Test2' el modelo 'users' sólo tendrá la funcionalidad y campos que el módulo 'Test' implementa.
 
-**Finalmente siempre recordar, que cuando agregamos nuevos modelos o extendemos lo que ya existen, siempre se debe ejecutar el método 'bind' del objecto 'RecordSet' para que estos cambios se apliquen a la base de datos.**
+**Finalmente siempre recordar, que cuando agregamos nuevos modelos o extendemos los que ya existen, siempre se debe ejecutar el método 'bind' del objecto 'RecordSet' para que estos cambios se apliquen a la base de datos.**
