@@ -30,7 +30,7 @@ class Server {
 	 * Visto por defecto para errores 500
 	 * @var string
 	 */
-	public $view_500 = __DIR__.'500.html';
+	public $view_500 = __DIR__.'/500.html';
 
 	/**
 	 * Función de renderizado
