@@ -394,3 +394,7 @@ public function index ($request, $response) {
 $val = encrypt('hola mundo'); // valor encriptado
 $val = decrypt($val); // recuperando valor
 ```
+
+## Administración de Modelos
+
+El tema de creación y manejo de modelos se detalla en la siguiente [guía](https://github.com/Dulivu/irbis/tree/main/RecordSet).
