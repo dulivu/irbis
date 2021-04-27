@@ -111,7 +111,7 @@ abstract class Controller {
 
 		foreach ($klass->getMethods() as $method) {
 			$comment = $method->getDocComment();
-			if (preg_match_all('#@(route|verb) (.*?)\r#', $comment, $pm)) {
+			if (preg_match_all('#@(route|verb) (.*?)\R#', $comment, $pm)) {
 				if (in_array('route', $pm[1])) {
 					$route = new Route($this, $method->name);
 					foreach ($pm[1] as $i => $m) {
