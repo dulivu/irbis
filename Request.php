@@ -67,7 +67,7 @@ class Request {
 	 */
 	private function __construct () {
 		$uri = parse_url($_SERVER['REQUEST_URI']);
-		$uri['path'] = preg_replace('/\/index.php(\/)?/', '/', strtolower($uri['path']), 1);
+		$uri['path'] = preg_replace('/\/(i|I)ndex.php(\/)?/', '/', $uri['path'], 1);
 		# en caso se muente sobre un alias de directorio, se extrae la ruta base
 		$base = substr($_SERVER['SCRIPT_NAME'], 0, strpos($_SERVER['SCRIPT_NAME'], '/index.php'));
 		self::$path = $base ? preg_replace('/'.preg_quote($base, '/').'/', '', $uri['path'], 1) : $uri['path'];
