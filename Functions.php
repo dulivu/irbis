@@ -65,11 +65,6 @@ function write_ini_file (string $file, array $data) {
 	safe_file_write($file, implode("\r\n", $res));
 }
 
-function redirect ($location) {
-	header("Location: $location");
-	die('');
-}
-
 /*
 |--------------------------------------------------------------------------
 | Herramientas; arreglos
