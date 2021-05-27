@@ -13,8 +13,8 @@ use Irbis\Traits\EventsStatic;
 
 /**
  * @package 		Irbis-Framework
- * @author			Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version			1.0
+ * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
+ * @version		1.0
  */
 
 class Server {
@@ -73,7 +73,7 @@ class Server {
 	public function addController (Controller $controller, string $alias = '') {
 		$controller->setServer($this);
 		$this->controllers[$controller->klass] = $controller;
-		if ($controller->name) $this->controllers_map[$alias] = $controller->name;
+		if ($controller->name) $this->controllers_map[$controller->name] = $controller->klass;
 		if ($alias) $this->controllers_map[$alias] = $controller->klass;
 		$this->fire('addController', $controller);
 	}
