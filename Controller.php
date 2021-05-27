@@ -26,7 +26,7 @@ abstract class Controller {
 	 * Directorio donde se ubica la clase
 	 * @var string
 	 */
-	public $dir;
+	public $directory;
 
 	/**
 	 * Almacena las rutas encontradas en la clase
@@ -43,7 +43,7 @@ abstract class Controller {
 		$k = array_slice(explode('\\', $klass), 0, -1);
 
 		$this->klass = $klass;
-		$this->dir = BASE_PATH.$ds.implode($ds, $k);
+		$this->directory = BASE_PATH.$ds.implode($ds, $k).$ds;
 	}
 
 	/**
@@ -106,8 +106,8 @@ abstract class Controller {
 	 * @return mix
 	 */
 	public function include ($path, $return = false) {
-		if (file_exists($this->dir.$path)) {
-			$inc = include($this->dir.$path);
+		if (file_exists($this->directory.$path)) {
+			$inc = include($this->directory.$path);
 			return $return ? $inc : true;
 		} return false;
 	}
