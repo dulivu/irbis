@@ -71,7 +71,6 @@ class Server {
 	 * @param Controller $controller
 	 */
 	public function addController (Controller $controller, string $alias = '') {
-		$controller->setServer($this);
 		$this->controllers[$controller->klass] = $controller;
 		if ($controller->name) $this->controllers_map[$controller->name] = $controller->klass;
 		if ($alias) $this->controllers_map[$alias] = $controller->klass;
