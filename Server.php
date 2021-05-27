@@ -88,7 +88,7 @@ class Server {
 			$name = substr($name, 1);
 		if (array_key_exists($name, $this->controllers_map))
 			$name = $this->controllers_map[$name];
-		return $this->controllers[$name];
+		return $this->controllers[$name] ?? null;
 	}
 
 	/**
