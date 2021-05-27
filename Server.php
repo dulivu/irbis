@@ -18,7 +18,7 @@ use Irbis\Traits\EventsStatic;
  */
 
 class Server {
-	use Singleton, EventsStatic;
+	use Singleton, Events;
 
 	/**
 	 * Vista por defecto para errores 404
@@ -75,7 +75,7 @@ class Server {
 		$this->controllers[$controller->klass] = $controller;
 		if ($controller->name) $this->controllers_map[$alias] = $controller->name;
 		if ($alias) $this->controllers_map[$alias] = $controller->klass;
-		$this->fire('addController', $this, $controller);
+		$this->fire('addController', $controller);
 	}
 
 	/**
