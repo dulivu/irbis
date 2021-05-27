@@ -35,12 +35,6 @@ abstract class Controller {
 	public $routes = false;
 
 	/**
-	 * Instancia del objeto servidor
-	 * @var \Irbis\Server
-	 */
-	private $server;
-
-	/**
 	 * Constructor
 	 */
 	public function __construct () {
@@ -58,25 +52,6 @@ abstract class Controller {
 	 * en cada petición del cliente
 	 */
 	public function init () {}
-
-	/**
-	 * Establece la referencia al objeto servidor
-	 * si esta no está establecida
-	 * @param \Irbis\Server $server
-	 */
-	public function setServer (Server $server) {
-		if (!$this->server)
-			$this->server = $server;
-	}
-
-	/**
-	 * Obtiene el objeto servidor enlazado
-	 * al controlador actual
-	 * @return \Irbis\Server
-	 */
-	public function getServer () : Server {
-		return $this->server;
-	}
 
 	/**
 	 * Devuelve un arreglo de rutas que coíncidan
@@ -135,22 +110,5 @@ abstract class Controller {
 			$inc = include($this->dir.$path);
 			return $return ? $inc : true;
 		} return false;
-	}
-
-	/**
-	 * Atajo para obtener un controlador del servidor
-	 * @return \Irbis\Controller 
-	 */
-	protected function getController ($name) : Controller {
-		return $this->getServer()->getController($name);
-	}
-
-	/**
-	 * Atajo para obtener la respuesta a la misma u otra ruta
-	 * para sobreescribir rutas previamente configuradas
-	 * @return \Irbis\Response
-	 */
-	protected function respond (string $path = '') : Response {
-		return $this->getServer()->respond($path);
 	}
 }
