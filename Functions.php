@@ -31,10 +31,36 @@ function irbis_loader (string $base = '') {
 | Herramientas
 |--------------------------------------------------------------------------
 |
+| redirect(string $url): reenvía a la ruta solicitada y termina el script
+| myme_type(string $file): obtiene el tipo mime del archivo
 | safe_file_write(string $file, mix $data): guardar datos en un archivo
 | write_ini_file(string $fileName, array $data): guarda un array como un archivo de configuracion
 |
 */
+function redirect ($url) {
+	header('Location: '.$url);
+	die('redirecting...');
+}
+
+function mime_type ($file) {
+	if (function_exists('finfo_open')) {
+		$finfo = finfo_open(FILEINFO_MIME_TYPE);
+		$mime = finfo_file($finfo, $file);
+		finfo_close($finfo);
+
+		$extension = pathinfo($file, PATHINFO_EXTENSION);
+		switch ($extension) {
+			case 'css': $mime = 'text/css'; break;
+			case 'js': $mime = 'application/javascript'; break;
+			default: break;
+		}
+	} else {
+		$mime = mime_content_type($file);
+	}
+	if (empty($mime)) $mime = 'application/octet-stream';
+	return $mime;
+}
+
 function safe_file_write (string $file, $data) {
 	if ($fp = fopen($file, 'w')) {
 		$time = microtime(TRUE);
