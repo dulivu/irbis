@@ -159,6 +159,7 @@ function array_unset(array &$array, string $path, string $separator = '.') {
 | Herramientas; cadenas de texto
 |--------------------------------------------------------------------------
 |
+| uniqueID: 	genera una cadena única
 | encrypt: 		encripta una cadena
 | decrypt: 		desencripta una cadena
 |
@@ -167,6 +168,10 @@ function array_unset(array &$array, string $path, string $separator = '.') {
 | 		HolaMundoGenial => hola_mundo_genial
 |
 */
+function uniqueID () {
+	return substr( md5(microtime()), 1, 8 );
+}
+
 function encrypt($cadena){
 	return base64_encode(openssl_encrypt($cadena, CRYPT_METHOD, CRYPT_KEY, 0, ''));
 }
