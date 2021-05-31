@@ -26,7 +26,7 @@ abstract class Controller {
 	 * Directorio donde se ubica la clase
 	 * @var string
 	 */
-	public $directory;
+	private $directory;
 
 	/**
 	 * Almacena las rutas encontradas en la clase
@@ -110,5 +110,14 @@ abstract class Controller {
 			$inc = include($this->directory.$path);
 			return $return ? $inc : true;
 		} return false;
+	}
+	
+	/**
+	 * devuelve una ruta concatenada con la ruta base del controlador
+	 * @param string $path		ruta a concatenar
+	 * @return string			ruta concatenada
+	 */
+	public function directory ($path) {
+		return $this->directory.$path;
 	}
 }
