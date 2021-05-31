@@ -117,7 +117,7 @@ abstract class Controller {
 	 * @param string $path		ruta a concatenar
 	 * @return string			ruta concatenada
 	 */
-	public function directory ($path) {
+	public function directory ($path = '') {
 		return $this->directory.$path;
 	}
 }
