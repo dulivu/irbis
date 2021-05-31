@@ -222,4 +222,37 @@ class Request {
 			return self::$method == strtoupper($method);
 		}
 	}
+	
+	/**
+ 	 * Ejecuta una retrollamada por cada archivo subido del cliente
+ 	 * 
+ 	 * @param string $key el nombre de la clave
+ 	 * @param Closue $callback
+ 	 */
+	  public static function eachUpload ($key, \Closure $callback) {
+		if (!isset($_FILES[$key]))
+			return;
+
+		if (is_array($_FILES[$key]['name'])) {
+			foreach ($_FILES[$key]['name'] as $k => $val) {
+				$arr['name'] = $_FILES[$key]['name'][$k];
+				$arr['type'] = $_FILES[$key]['type'][$k];
+				$arr['tmp_name'] = $_FILES[$key]['tmp_name'][$k];
+				$arr['error'] = $_FILES[$key]['error'][$k];
+				$arr['size'] = $_FILES[$key]['size'][$k];
+				$callback($arr);
+			}
+		} else {
+			$callback($_FILES[$key]);
+		}
+	}
+
+	/**
+	 * Determina si existen archivo para subir
+	 *
+	 * @return bool
+	 */
+	public static function hasUploads () {
+		return !!$_FILES;
+	}
 }
