@@ -139,6 +139,7 @@ class Server {
 				];
 			}
 		} catch (\Throwable $e) {
+			header("HTTP/1.0 500 Internal Server Error");
 			$response->view = $this->view_500;
 			$response->data = [
 				'status' => 'error',
