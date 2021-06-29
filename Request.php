@@ -154,7 +154,6 @@ class Request {
 				$result = self::getFromArray($arr, array_keys($key), $key);
 				return array_combine(array_keys($key), $result);
 			} else {
-				$key = array_values($key);
 				$def = (array) $def;
 				return array_map(function ($i) use ($arr, $def) {
 					return $arr[$i] ?? $def[$i] ?? null;
