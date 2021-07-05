@@ -8,7 +8,7 @@ include 'Functions.php';
 irbis_loader();
 
 use Irbis\Traits\Singleton;
-use Irbis\Traits\EventsStatic;
+use Irbis\Traits\Events;
 
 
 /**
