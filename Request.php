@@ -7,10 +7,12 @@ use Irbis\Traits\Singleton;
 
 /**
  * Administra los datos de petición del cliente
+ * sólo puede existir un objeto request, por lo que
+ * implementa el modelo Singleton
  *
  * @package 	irbis
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 class Request {
 	use Singleton;

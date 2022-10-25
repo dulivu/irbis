@@ -5,8 +5,8 @@ namespace Irbis\Traits;
 
 /**
  * @package 	irbis
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 trait Singleton {
 

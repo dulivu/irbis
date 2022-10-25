@@ -159,17 +159,18 @@ function array_unset(array &$array, string $path, string $separator = '.') {
 | Herramientas; cadenas de texto
 |--------------------------------------------------------------------------
 |
-| uniqueID: 	genera una cadena única
+| uniqueID: 	genera una cadena única de 8 carácteres
 | encrypt: 		encripta una cadena
 | decrypt: 		desencripta una cadena
+| token:		genera una cadena única de 20 carácteres
 |
 | decamelize, camelize:
 |		convierten cadenas de texto en formato CamelCase y viceversa
 | 		HolaMundoGenial => hola_mundo_genial
 |
 */
-function uniqueID () {
-	return substr( md5(microtime()), 1, 8 );
+function uniqueID ($lenght=8) {
+	return substr( md5(microtime()), 1, $lenght);
 }
 
 function encrypt($cadena){
@@ -188,4 +189,32 @@ function camelize ($string) {
 	return $word = preg_replace_callback("/(^|_)([a-z])/", function($m) { 
 		return strtoupper("$m[2]"); 
 	}, $string);
+}
+
+function _crypto_rand_secure ($min, $max) {
+    $range = $max - $min;
+    if ($range < 1) return $min; // not so random...
+    $log = ceil(log($range, 2));
+    $bytes = (int) ($log / 8) + 1; // length in bytes
+    $bits = (int) $log + 1; // length in bits
+    $filter = (int) (1 << $bits) - 1; // set all lower bits to 1
+    do {
+        $rnd = hexdec(bin2hex(openssl_random_pseudo_bytes($bytes)));
+        $rnd = $rnd & $filter; // discard irrelevant bits
+    } while ($rnd > $range);
+    return $min + $rnd;
+}
+
+function token ($length=20) {
+    $token = "";
+    $codeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    $codeAlphabet.= "abcdefghijklmnopqrstuvwxyz";
+    $codeAlphabet.= "0123456789";
+    $max = strlen($codeAlphabet); // edited
+
+    for ($i=0; $i < $length; $i++) {
+        $token .= $codeAlphabet[_crypto_rand_secure(0, $max-1)];
+    }
+
+    return $token;
 }

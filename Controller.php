@@ -10,7 +10,7 @@ namespace Irbis;
  * sus métodos pueden representar acciones a rutas cliente
  *
  * @package 	irbis
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
  * @version		1.0
  */
 abstract class Controller {
@@ -51,7 +51,7 @@ abstract class Controller {
 	 * por el controlador hijo, es llamado siempre
 	 * en cada petición del cliente
 	 */
-	public function init () {}
+	public function start () {}
 
 	/**
 	 * Devuelve un arreglo de rutas que coíncidan
@@ -78,7 +78,9 @@ abstract class Controller {
 
 	/**
 	 * Rellena el arreglo $routes con los métodos
-	 * que registren una ruta
+	 * que registren una ruta, los métodos que lleven en
+	 * sus comentarios un texto @route indican que es un
+	 * método que responde a una ruta de cliente
 	 */
 	private function fillRoutes () {
 		$this->routes = [];
@@ -91,6 +93,9 @@ abstract class Controller {
 					$route = new Route($this, $method->name);
 					foreach ($pm[1] as $i => $m) {
 						if ($m == 'route') $route->path = $pm[2][$i];
+						# TODO: el método ya distingue el verbo, falta 
+						# separar los arreglos del controlador con el verbo
+						# incluído
 						if ($m == 'verb') $route->verb = $pm[2][$i];
 					}
 					$this->routes[] = $route;
@@ -119,5 +124,14 @@ abstract class Controller {
 	 */
 	public function directory ($path = '') {
 		return $this->directory.$path;
+	}
+
+	/**
+	 * Envoltura para llamar a la función previa
+	 * de otro controlador, simula llamada por herencia
+	 */
+	protected function super ($fake_path = '') {
+		$server = Server::getInstance();
+		return $server->respond($fake_path);
 	}
 }

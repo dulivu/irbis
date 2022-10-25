@@ -1,13 +1,15 @@
 <?php
 namespace Irbis\RecordSet;
 
+use Irbis\RecordSet;
+
 
 /**
  * Representa a una propiedad del modelo
  *
  * @package 	irbis/recordset
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version 	1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version 	2.0
  */
 class Property extends Member {
 	public $name;
@@ -30,6 +32,7 @@ class Property extends Member {
 	public $target_model = null;
 	public $target_property = null;
 	public $nm_string; # Para relaciones muchos a muchos
+	public $nm_models;
 	public $nm1;
 	public $nm2;
 
@@ -43,7 +46,7 @@ class Property extends Member {
 	}
 
 	/**
-	 * Modifica el comportamiendo de la propiedad
+	 * Modifica el comportamiendo y estructura de la propiedad
 	 * @param array $options
 	 */
 	public function alter (array $options) {
@@ -114,7 +117,7 @@ class Property extends Member {
 				INNER JOIN `{$this->nm_string}` 
 					ON `{$this->nm_string}`.`$this->name` = `{$this->target_model}`.`id`
 				WHERE `{$this->nm_string}`.`{$this->target_property}` = ?";
-
+			
 			$stmt = $recordset->execute($query, [$record->id]);
 			while ($fetch = $stmt->fetch(\PDO::FETCH_ASSOC)) {
 				$value[] = new Record($fetch, $value);
@@ -125,9 +128,9 @@ class Property extends Member {
 	}
 
 	/**
-	 * Valida el registro lanzando error en caso sea requerido,
-	 * devuelve el valor por defecto si no estuviera en el arreglo
-	 *
+	 * Valida que exista el valor de la propiedad dentro del 
+	 * arreglo entregado, valida que este valor sea requerido
+	 * o tenga un valor por defecto
 	 * @param array $row
 	 * @return mix
 	 */
@@ -150,18 +153,17 @@ class Property extends Member {
 	 * @param array $row
 	 * @return \Irbis\RecordSet\Record | mix
 	 */
-	public function testRecordValue ($row) {
+	public function testRecordValue ($row, $emptyRecordSet) {
 		$value = $row[$this->name] ?? null;
 
 		if ($this->type == 'n1' && $value) {
-			$recordset = $this->recordset->newRecordSet($this->target_model);
 			if ($value instanceof Record) {
-				if ($value->getName() != $recordset->getName()) {
+				if ($value->getName() != $emptyRecordSet->getName()) {
 					throw new \Exception("recordset: modelo de referencia incompatible");
 				}
-			} elseif ($value) {
-				$recordset->{is_array($value) ? 'insert' : 'select'}($value);
-				return $recordset[0] ?? null;
+			} else {
+				$emptyRecordSet->{is_assoc($value) ? 'insert' : 'select'}($value);
+				return $emptyRecordSet[0] ?? null;
 			}
 		}
 
@@ -178,13 +180,12 @@ class Property extends Member {
 	 *
 	 * @return RecordSet|null
 	 */
-	public function testRecordSetValue ($row, $record) {
+	public function testRecordSetValue ($row, $record, $emptyRecordSet) {
 		$value = $row[$this->name] ?? null;
 
 		if (($this->type == '1n' || $this->type == 'nm')) {
-			$recordset = $this->recordset->newRecordSet($this->target_model);
 			if ($value instanceof RecordSet) {
-				if ($value->getName() != $recordset->getName()) {
+				if ($value->getName() != $emptyRecordSet->getName()) {
 					throw new \Exception("recordset: modelo de referencia incompatible");
 				}
 			}
@@ -193,30 +194,34 @@ class Property extends Member {
 
 			if ($id) {
 				if ($this->type == '1n') {
-					$recordset
+					$emptyRecordSet
 						->select([$this->target_property => $id])
 						->update([$this->target_property => null]);
-					$recordset->flush();
+					$emptyRecordSet->flush();
 				} elseif ($this->type == 'nm') {
 					$query = "DELETE FROM `{$this->nm_string}` ".
 						"WHERE {$this->target_property} = {$id}";
-					$recordset->execute($query);
+					$emptyRecordSet->execute($query);
 				}
 			}
 
+			// TODO
+			// Si son varias inserciones los registros nuevos se duplican
+			// ["nm_field" => ["nombre" => "juan"]], ["nm_field" => ["nombre" => "juan"]]
+			// se intentará crear dos registros nombre => juan
 			if ($value) {
 				if ($value instanceof RecordSet) $value = $value->ids;
-				$recordset->setRelatedRecord($record, $this);
+				$emptyRecordSet->setRelatedRecord($record, $this);
 				$arr = array_reduce($value, function ($carry, $item) {
 					$carry[(is_array($item) ? 'i' : 's')][] = $item;
 					return $carry;
 				}, ['i' => [], 's' => []]);
-
-				if ($arr['i']) $recordset->insert(...$arr['i']);
-				if ($arr['s']) $recordset->select($arr['s']);
+				
+				if ($arr['i']) $emptyRecordSet->insert(...$arr['i']);
+				if ($arr['s']) $emptyRecordSet->select($arr['s']);
 			}
 
-			return $recordset;
+			return $emptyRecordSet;
 		}
 
 		return $value;

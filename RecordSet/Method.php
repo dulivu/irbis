@@ -6,12 +6,21 @@ namespace Irbis\RecordSet;
  * Representa un método del modelo
  *
  * @package 	irbis/recordset
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 class Method extends Member {
 
-	private $name;
+	/**
+	 * Nombre del método
+	 * @var string
+	 */
+	public $name;
+	/**
+	 * pila de ejecuciones que puede
+	 * realizar el método
+	 * @var [closure]
+	 */
 	private $stack;
 
 	public function __construct ($name) {
@@ -20,8 +29,7 @@ class Method extends Member {
 	}
 
 	/**
-	 * Añade una retrollamada a la pila
-	 * 
+	 * Añade un closure a la pila
 	 * @param Closure $fn
 	 */
 	public function stack (\Closure $fn) {

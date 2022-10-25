@@ -8,8 +8,8 @@ namespace Irbis;
  * para procesar las respuestas que se deben de entregar
  *
  * @package 	irbis
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 class Response {
 
@@ -29,7 +29,7 @@ class Response {
 	 * La ruta preparada para responder
 	 * @var \Irbis\Route
 	 */
-	private $route;
+	public $route;
 
 	/**
 	 * La vista que utilizará para responder

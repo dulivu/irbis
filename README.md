@@ -265,6 +265,7 @@ $server->respond();
 ```php
 namespace Test2;
 
+use Irbis\Server;
 use Irbis\Controller as iController;
 use Irbis\DataBase as DB;
 
@@ -291,7 +292,7 @@ class Controller extends iController {
     // ejecutará la lógica del modulo anteriormente registrado, en este caso 'Test' y devolverá
     // el objeto '$response' que procesó
     // por último le cambiamos la vista por la nueva y devolvemos el nuevo objeto $response
-    $response = $this->getServer()->respond();
+    $response = $this->super();
     $response->view = 'Test2/views/persons.html';
     // si en el método enrutado devolvemos un objeto '$response' diferente
     // este será el que se procesará para la respuesta al cliente

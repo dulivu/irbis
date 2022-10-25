@@ -1,13 +1,15 @@
 <?php
 namespace Irbis\RecordSet;
 
+use Irbis\RecordSet;
+
 
 /**
  * Representa un unico registro de un modelo especifico
  *
  * @package 	irbis/recordset
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 class Record {
 
@@ -72,7 +74,7 @@ class Record {
 	 */
 	public function __set ($prop_name, $prop_value) {
 		if ($prop_name == 'id') return;
-		$this->recordset->update([$prop_name => $prop_value], $this);
+		$this->update([$prop_name => $prop_value]);
 	}
 
 	/**
@@ -100,7 +102,7 @@ class Record {
 	 * @param array $update
 	 */
 	public function update ($update) {
-		$this->recordset->update($update, $this->id);
+		$this->recordset->update($update, $this);
 		return $this;
 	}
 

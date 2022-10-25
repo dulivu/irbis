@@ -9,8 +9,8 @@ namespace Irbis;
  * de transacciones solicitadas.
  * 
  * @package 	irbis
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 class DataBase extends \PDO {
 
@@ -25,7 +25,7 @@ class DataBase extends \PDO {
 	 * si se llama a 'getInstance' sin parámetro
 	 * @var string
 	 */
-	public static $pointer;
+	public static $pointer = 'main';
 
 	/**
 	 * El nombre de la conexión

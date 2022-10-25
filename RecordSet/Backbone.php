@@ -8,8 +8,8 @@ use Irbis\Server;
  * esta clase es de uso exclusivo dentro de otra, RecordSet
  *
  * @package 	irbis/recordset
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 class Backbone {
 
@@ -32,6 +32,17 @@ class Backbone {
 	private static $instances = [];
 
 	/**
+	 * Verifica que un nombre de instancia exista, si no, lo crea
+	 * devuelve el nombre de instancia
+	 * @param string $name
+	 * @return \Irbis\RecordSet\members
+	 */
+	public static function getInstance (string $name) {
+		self::$instances[$name] = self::$instances[$name] ?? new self($name);
+		return self::$instances[$name];
+	}
+
+	/**
 	 * Contructor privado recorre todos los archivos /models/{name} 
 	 * dentro de cada controlador registrado
 	 * @param string $name
@@ -47,28 +58,18 @@ class Backbone {
 		]);
 
 		$instance = $this;
-		Server::getInstance()->forEachController(function ($controller) use ($instance) {
-			$s = DIRECTORY_SEPARATOR;
-			$file = "models".$s."{$instance->name}.php";
-			if ($disc = $controller->include($file, true)) {
-				foreach ($disc as $key => $value)
-					$instance->addMember($key, $value);
-			}
-		});
+		Server::getInstance()
+			->forEachController(function ($controller) use ($instance) {
+				$s = DIRECTORY_SEPARATOR;
+				$file = "models".$s."{$instance->name}.php";
+				if ($spinal_disc = $controller->include($file, true)) {
+					foreach ($spinal_disc as $key => $value)
+						$instance->addMember($key, $value);
+				}
+			});
 
 		if (count($this->members) <= 1)
 			throw new \Exception("recordset: no se pudo importar una definición para '$name'");
-	}
-
-	/**
-	 * Verifica que un nombre de instancia exista, si no lo crea
-	 * devuelve el nombre de instancia
-	 * @param string $name
-	 * @return \Irbis\RecordSet\members
-	 */
-	public static function getInstance (string $name) {
-		self::$instances[$name] = self::$instances[$name] ?? new self($name);
-		return self::$instances[$name];
 	}
 
 	/**
@@ -81,13 +82,12 @@ class Backbone {
 		if ($key == '__extend') {
 			$this->addMember(self::getInstance($value));
 		} elseif ($key instanceof self) {
-			foreach ($key->getMembers() as $k => $m) $this->members[$k] = $m;
+			foreach ($key->getMembers() as $k => $m) 
+				$this->members[$k] = clone $m;
 		} elseif (is_callable($value)) {
-			$this->members[$key] = $this->members[$key] ?? new Method($key);
-			$this->members[$key]->stack($value);
+			$this->getMethod($key, true)->stack($value);
 		} else {
-			$this->members[$key] = $this->members[$key] ?? new Property($key);
-			$this->members[$key]->alter($value);
+			$this->getProperty($key, true)->alter($value);
 		}
 	}
 
@@ -113,49 +113,52 @@ class Backbone {
 	 * @param string $key
 	 * @return Irbis\RecordSet\Property
 	 */
-	public function getProperty ($key, $recordset = null) {
-		return !$this->hasProperty($key) ? false :
-			clone $this->members[$key]->setRecordSet($recordset);
+	public function getProperty ($prop_name, $add_create = false) {
+		if ($this->hasProperty($prop_name)) {
+			return $this->members[$prop_name];
+		} else {
+			if ($add_create)
+				return $this->members[$prop_name] = new Property($prop_name);
+			return false;
+		}
 	}
 
 	/**
 	  * @param string $name
 	  * @return Irbis\RecordSet\Method
 	  */
-	public function getMethod ($key, $recordset = null) {
-		return !$this->hasMethod($key) ? false :
-			clone $this->members[$key]->setRecordSet($recordset);
+	public function getMethod ($method_name, $add_create = false) {
+		if ($this->hasMethod($method_name)) {
+			return $this->members[$method_name];
+		} else {
+			if ($add_create)
+				return $this->members[$method_name] = new Method($method_name);
+			return false;
+		}
 	 }
 
 	/**
 	 * @return array[Irbis\RecordSet\Property]
 	 */
-	public function getProperties ($recordset = null) {
-		$prop = [];
-		foreach ($this->members as $key => $member) {
-			if (!($member instanceof Property)) continue;
-			$prop[$key] = clone $member->setRecordSet($recordset);
-		} return $prop;
+	public function getProperties () {
+		return array_filter($this->members, function ($member) {
+			return $member instanceof Property;
+		});
 	}
 
 	/**
 	 * @return array[Irbis\RecordSet\Method]
 	 */
-	public function getMethods ($recordset = null) {
-		$prop = [];
-		foreach ($this->members as $key => $member) {
-			if (!($member instanceof Method)) continue;
-			$prop[$key] = clone $member->setRecordSet($recordset);
-		} return $prop;
+	public function getMethods () {
+		return array_filter($this->members, function ($member) {
+			return $member instanceof Method;
+		});
 	}
 
 	/**
 	 * @return array
 	 */
-	public function getMembers ($recordset = null) {
-		$m = [];
-		foreach ($this->members as $key => $member) {
-			$m[$key] = clone $member->setRecordSet($recordset);
-		} return $m;
+	public function getMembers () {
+		return $this->members;
 	}
 }

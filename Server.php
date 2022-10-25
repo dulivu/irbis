@@ -12,9 +12,13 @@ use Irbis\Traits\Events;
 
 
 /**
- * @package 		Irbis-Framework
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * El objeto server es el punto de entrada de la aplicación
+ * este objeto será el que contenga todos los elementos necesarios
+ * y principales para la ejecución de tu aplicación
+ * 
+ * @package 	irbis
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 
 class Server {
@@ -27,13 +31,16 @@ class Server {
 	public $view_404 = __DIR__.'/404.html';
 
 	/**
-	 * Visto por defecto para errores 500
+	 * Vista por defecto para errores 500
 	 * @var string
 	 */
 	public $view_500 = __DIR__.'/500.html';
 
 	/**
-	 * Función de renderizado
+	 * Función de renderizado, será el closure que
+	 * utilizará el servidor en reemplazo del por
+	 * defecto, esto en caso se quiera usar otros
+	 * motores de renderizado, ejem. twig
 	 * @var \Closure
 	 */
 	public $render;
@@ -60,10 +67,17 @@ class Server {
 	private $responses = [];
 
 	/**
-	 * Constructor
+	 * Realiza operaciones de encendido del servidor
+	 * @param Controller [$controllers]
+	 *  - crea el objeto 'request'
+	 *  - agrega todos los módulos a utilizar
 	 */
-	private function __construct() {
+	public function start (array $controllers) {
 		$this->request = Request::getInstance();
+		foreach ($controllers as $alias => $controller) {
+			$alias = gettype($alias) == 'string' ? $alias : '';
+			$this->addController($controller, $alias);
+		}
 	}
 
 	/**
@@ -78,7 +92,7 @@ class Server {
 	}
 
 	/**
-	 * Devuelve un controlador por su nombre de clase
+	 * Devuelve un controlador por su nombre de clase o alias
 	 * @param string $name
 	 * @return Controller
 	 */
@@ -92,39 +106,23 @@ class Server {
 
 	/**
 	 * Entrega una respuesta a la petición del cliente
-	 * @param string $path (optional)
+	 * @param string $fake_path (optional)
 	 * @return null | \Irbis\Response
 	 */
-	public function respond (string $path = '') {
-		$r = $path ?: $this->request->path;
-		$response = null;
+	public function respond (string $fake_path = '') {
+		$path = $fake_path ?: $this->request->path;
+		$response = $this->responsesPrepare($path, $fake_path);
 
-		// si no se ha creado una respuesta para la ruta solicitada
-		// se crea uno nuevo y se le agrega las rutas coincidentes
-		if (!array_key_exists($r, $this->responses)) {
-			$this->responses[$r] = new Response($r);
-			foreach ($this->controllers as $ctrl) {
-				$this->responses[$r]->addRoutes($ctrl->getMatchedRoutes($r));
-			}
-		}
-
-		// este bloque devolerá una respuesta cuando este metodo
-		// es llamado nuevamente dentro de un controlador
-		// utilizado para sobreescribir rutas en nuevos modulos
-		else $response = $this->responses[$r];
-		if (!$response && $path)
-			$response = $this->responses[$r];
 		if ($response)
-			return $response->prepare() ? $response->execute() : false;
+			return $response->prepare() ? $response->execute() : new Response();
 
 		// este bloque controla errores y que la ruta solicitada
 		// se encuentre registrada, prepara la respuesta final que
 		// el cliente recibirá
 		try {
-			$response = $this->responses[$r];
+			$response = $this->responses[$path];
 			if ($response->prepare()) {
-				foreach ($this->controllers as $ctrl) 
-					$ctrl->init();
+				$this->forEachController(function ($ctrl) { $ctrl->start(); });
 				$response = $response->execute();
 			} else {
 				header("HTTP/1.0 404 Not Found");
@@ -153,12 +151,51 @@ class Server {
 				],
 			];
 		} finally {
-			$this->fire('response', $this, [$this->request, $response]);
+			$this->fire('response', [$this->request, $response]);
 			if (!$response->view)
 				die($response."");
-			$this->setRenderEnviroment();
-			$this->renderView($response);
+			$this->setRender();
+			$this->doRender($response);
 		}
+	}
+
+	/**
+	 * Si la ruta no existe en las respuestas, se crea una nueva
+	 * y devuelve falso, caso contrario, devuelve la respuesta 
+	 * coíncidente
+	 * @param string $path
+	 */
+	private function responsesPrepare ($path, $fake_path = '') {
+		if (!array_key_exists($path, $this->responses)) {
+			$this->responses[$path] = new Response($path);
+			foreach ($this->controllers as $ctrl) {
+				$routes = $ctrl->getMatchedRoutes($path);
+				$this->responses[$path]->addRoutes($routes);
+			}
+			// si la petición no viene del cliente
+			// forzará la devolución de una respuesta
+			if (!$fake_path)
+				return False;
+		}
+		// esta devolución sirve en caso el método respond
+		// sea llamado nuevamente dentro de algún controlador
+		// así se puede sobreescribir las rutas
+		return $this->responses[$path];
+	}
+
+	/**
+	 * Esteblece el entorno de renderizado, si no declaro uno
+	 * o este no es un closure esta función establece uno por defecto
+	 */
+	private function setRender () {
+		$this->render = $this->render instanceof \Closure ? 
+			$this->render : function ($__path__, $__data__) {
+				extract($__data__);
+				
+				if (!file_exists($__path__)) 
+					throw new \Exception("template '{$__path__}' not found");
+				include($__path__);
+			};
 	}
 
 	/**
@@ -166,7 +203,7 @@ class Server {
 	 * el entorno de renderizado de vista $this->render
 	 * @param Response $response
 	 */
-	private function renderView (Response $response) {
+	private function doRender (Response $response) {
 		$request = $this->request;
 		$search = [];
 		$replace = [];
@@ -188,21 +225,6 @@ class Server {
 			str_replace($search, $replace, $response->view), 
 			(array) $response->data
 		);
-	}
-
-	/**
-	 * Esteblece el entorno de renderizado, si no declaro uno
-	 * o este no es un closure esta función establece uno por defecto
-	 */
-	private function setRenderEnviroment () {
-		$this->render = $this->render instanceof \Closure ? 
-			$this->render : function ($__path__, $__data__) {
-				extract($__data__);
-				
-				if (!file_exists($__path__)) 
-					throw new \Exception("template '{$__path__}' not found");
-				include($__path__);
-			};
 	}
 
 	/**

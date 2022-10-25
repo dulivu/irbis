@@ -5,11 +5,11 @@ namespace Irbis;
 
 /**
  * Representa una ruta coíncidente con la petición del cliente,
- * en escencia es una envoltura de un método a ejecutar
+ * en escencia es una envoltura de un método controlador a ejecutar
  *
  * @package 	irbis
- * @author		Jorge Luis Quico C. <GeorgeL1102@gmail.com>
- * @version		1.0
+ * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
+ * @version		2.0
  */
 class Route {
 
@@ -26,9 +26,11 @@ class Route {
 	/**
 	 * Valida si la petición coíncide con la ruta
 	 * @param string $path
-	.*/
+	 */
 	public function match (string $path) : bool {
 		$sm = $path == Request::$path;
+		if ($this->verb && $this->verb != Request::$method)
+			return false;
 		return $path == $this->path || Request::compare($path, $this->path, $sm);
 	}
 
