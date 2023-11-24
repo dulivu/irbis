@@ -159,25 +159,27 @@ function array_unset(array &$array, string $path, string $separator = '.') {
 | Herramientas; cadenas de texto
 |--------------------------------------------------------------------------
 |
-| uniqueID: 	genera una cadena única de 8 carácteres
-| encrypt: 		encripta una cadena
-| decrypt: 		desencripta una cadena
-| token:		genera una cadena única de 20 carácteres
+| strUniqueID: 	genera una cadena única de 8 carácteres
+| strEncrypt: 		encripta una cadena
+| strDecrypt: 		desencripta una cadena
+| strToken:		genera una cadena única de 20 carácteres
+| strStartsWith:	cadena empieza con
+| strEndsWith:		cadena termina con
 |
 | decamelize, camelize:
 |		convierten cadenas de texto en formato CamelCase y viceversa
 | 		HolaMundoGenial => hola_mundo_genial
 |
 */
-function uniqueID ($lenght=8) {
+function str_unique_id ($lenght=8) {
 	return substr( md5(microtime()), 1, $lenght);
 }
 
-function encrypt($cadena){
+function str_encrypt($cadena){
 	return base64_encode(openssl_encrypt($cadena, CRYPT_METHOD, CRYPT_KEY, 0, ''));
 }
  
-function decrypt($cadena){
+function str_decrypt($cadena){
 	return rtrim(openssl_decrypt(base64_decode($cadena), CRYPT_METHOD, CRYPT_KEY, 0, ''), "\0");
 }
 
@@ -205,7 +207,7 @@ function _crypto_rand_secure ($min, $max) {
     return $min + $rnd;
 }
 
-function token ($length=20) {
+function str_token ($length=20) {
     $token = "";
     $codeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     $codeAlphabet.= "abcdefghijklmnopqrstuvwxyz";
@@ -217,4 +219,23 @@ function token ($length=20) {
     }
 
     return $token;
+}
+
+function str_starts_with ($string, $startString) {
+    $len = strlen($startString);
+    return (substr($string, 0, $len) === $startString);
+}
+
+function str_ends_with ($string, $endString) {
+    $len = strlen($endString);
+    if ($len == 0)
+        return false;
+    return (substr($string, -$len) === $endString);
+}
+
+function pathcheck($path) {
+	$path = str_replace(['/','\\'], DIRECTORY_SEPARATOR, $path);
+	if (!str_starts_with($path, DIRECTORY_SEPARATOR))
+		$path = DIRECTORY_SEPARATOR.$path;
+	return $path;
 }

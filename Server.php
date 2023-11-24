@@ -13,58 +13,40 @@ use Irbis\Traits\Events;
 
 /**
  * El objeto server es el punto de entrada de la aplicación
- * este objeto será el que contenga todos los elementos necesarios
- * y principales para la ejecución de tu aplicación
  * 
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.0
+ * @version		2.2
  */
 
 class Server {
 	use Singleton, Events;
 
-	/**
-	 * Vista por defecto para errores 404
-	 * @var string
-	 */
-	public $view_404 = __DIR__.'/404.html';
-
-	/**
-	 * Vista por defecto para errores 500
-	 * @var string
-	 */
-	public $view_500 = __DIR__.'/500.html';
-
-	/**
-	 * Función de renderizado, será el closure que
-	 * utilizará el servidor en reemplazo del por
-	 * defecto, esto en caso se quiera usar otros
-	 * motores de renderizado, ejem. twig
-	 * @var \Closure
-	 */
 	public $render;
 
 	/**
-	 * Instancia del objeto Request
-	 * @var \Irbis\Request
+	 * Vistas por defecto para errores
+	 * @var string
 	 */
-	protected $request;
+	public $view_404 = __DIR__.'/404.html';
+	public $view_500 = __DIR__.'/500.html';
 
 	/**
 	 * Arreglo asociativo con todos los controladores 
 	 * registrados por el método 'addController'
 	 * @var array['class_name' => \Irbis\Controller]
 	 */
-	private $controllers = [];
-	private $controllers_map = [];
+	protected $controllers = [];
+	protected $controllers_map = [];
 
 	/**
-	 * Arreglo asociativo con todas las respuestas 
-	 * para cada petición
+	 * Arreglo asociativo con las respuesta a la petición
 	 * @var array['path' => \Irbis\Response]
 	 */
-	private $responses = [];
+	protected $responses = [];
+	protected $responded = False;
+
+	protected $request;
 
 	/**
 	 * Realiza operaciones de encendido del servidor
@@ -72,7 +54,7 @@ class Server {
 	 *  - crea el objeto 'request'
 	 *  - agrega todos los módulos a utilizar
 	 */
-	public function start (array $controllers) {
+	public function setup (array $controllers = []) {
 		$this->request = Request::getInstance();
 		foreach ($controllers as $alias => $controller) {
 			$alias = gettype($alias) == 'string' ? $alias : '';
@@ -82,48 +64,68 @@ class Server {
 
 	/**
 	 * Añade un nuevo controlador al servidor
-	 * @param Controller $controller
+	 * @param Controller $controller, controlador a agregar
+	 * @param string $alias, nombre alternativo del controlador
+	 * @fire 'addController'
 	 */
 	public function addController (Controller $controller, string $alias = '') {
+		$alias = $alias ?: $controller->name;
 		$this->controllers[$controller->klass] = $controller;
-		if ($controller->name) $this->controllers_map[$controller->name] = $controller->klass;
 		if ($alias) $this->controllers_map[$alias] = $controller->klass;
-		$this->fire('addController', $controller);
+		$this->fire('addController', [$controller, $alias]);
 	}
 
 	/**
 	 * Devuelve un controlador por su nombre de clase o alias
 	 * @param string $name
-	 * @return Controller
 	 */
-	public function getController ($name) : Controller {
-		if (strpos($name, '\\') === 0)
-			$name = substr($name, 1);
+	public function getController (string $name) : Controller {
 		if (array_key_exists($name, $this->controllers_map))
 			$name = $this->controllers_map[$name];
+		elseif (strpos($name, '\\') === 0)
+			$name = substr($name, 1);
 		return $this->controllers[$name] ?? null;
 	}
 
 	/**
+	 * Devuelve un objeto response para la ruta cliente
+	 * recorre todos los controladores registrados y les solicita
+	 * entregar las Rutas registradas coíncidentes 
+	 * @param string $path
+	 */
+	protected function getResponse (string $path) : Response {
+		if (!array_key_exists($path, $this->responses)) {
+			$this->responses[$path] = new Response($path);
+			foreach ($this->controllers as $ctrl) {
+				$routes = $ctrl->getMatchedRoutes($path);
+				$this->responses[$path]->addRoutes($routes);
+			}
+		}
+		return $this->responses[$path];
+	}
+
+	/**
 	 * Entrega una respuesta a la petición del cliente
-	 * @param string $fake_path (optional)
+	 * @param string $fake_path (optional), en caso se quiera obtener una respuesta dentro del código de un controlador
 	 * @return null | \Irbis\Response
 	 */
-	public function respond (string $fake_path = '') {
+	public function execute (string $fake_path = '') {
 		$path = $fake_path ?: $this->request->path;
-		$response = $this->responsesPrepare($path, $fake_path);
 
-		if ($response)
-			return $response->prepare() ? $response->execute() : new Response();
+		$response = $this->getResponse($path);
+		$prepared = $response->prepareRoute();
+
+		// si la petición no viene del cliente
+		if ($this->responded || $fake_path) return $response->executeRoute();
 
 		// este bloque controla errores y que la ruta solicitada
 		// se encuentre registrada, prepara la respuesta final que
 		// el cliente recibirá
 		try {
-			$response = $this->responses[$path];
-			if ($response->prepare()) {
-				$this->forEachController(function ($ctrl) { $ctrl->start(); });
-				$response = $response->execute();
+			$this->responded = True;
+			if ($prepared) {
+				foreach ($this->controllers as $ctrl) { $ctrl->init(); }
+				$response = $response->executeRoute();
 			} else {
 				header("HTTP/1.0 404 Not Found");
 				$response->view = $this->view_404;
@@ -159,35 +161,15 @@ class Server {
 		}
 	}
 
-	/**
-	 * Si la ruta no existe en las respuestas, se crea una nueva
-	 * y devuelve falso, caso contrario, devuelve la respuesta 
-	 * coíncidente
-	 * @param string $path
-	 */
-	private function responsesPrepare ($path, $fake_path = '') {
-		if (!array_key_exists($path, $this->responses)) {
-			$this->responses[$path] = new Response($path);
-			foreach ($this->controllers as $ctrl) {
-				$routes = $ctrl->getMatchedRoutes($path);
-				$this->responses[$path]->addRoutes($routes);
-			}
-			// si la petición no viene del cliente
-			// forzará la devolución de una respuesta
-			if (!$fake_path)
-				return False;
-		}
-		// esta devolución sirve en caso el método respond
-		// sea llamado nuevamente dentro de algún controlador
-		// así se puede sobreescribir las rutas
-		return $this->responses[$path];
-	}
+	// =============================
+	// ==== HELPERS & INTERNALS ====
+	// =============================
 
 	/**
-	 * Esteblece el entorno de renderizado, si no declaro uno
-	 * o este no es un closure esta función establece uno por defecto
+	 * Esteblece el entorno de renderizado '$this->render'
+	 * entorno: función que llama y ejecuta la vista
 	 */
-	private function setRender () {
+	protected function setRender () {
 		$this->render = $this->render instanceof \Closure ? 
 			$this->render : function ($__path__, $__data__) {
 				extract($__data__);
@@ -199,11 +181,13 @@ class Server {
 	}
 
 	/**
-	 * Prepara variables de petición y ejecuta
-	 * el entorno de renderizado de vista $this->render
+	 * usa el entorno de renderizado de vista '$this->render'
+	 * DEFAULT_VIEW (index) y las variables del cliente son usadas para reemplazar en la vista
+	 * ejem 1: /test?view=index -> views/{view}.html -> views/index.html
+	 * ejem 2: /test/(:index) -> views/(0).html -> views/index.html
 	 * @param Response $response
 	 */
-	private function doRender (Response $response) {
+	protected function doRender (Response $response) {
 		$request = $this->request;
 		$search = [];
 		$replace = [];
@@ -226,10 +210,9 @@ class Server {
 			(array) $response->data
 		);
 	}
-
+	
 	/**
-	 * Ejecuta una retrollamada por cada controlador
-	 * registrado en el servidor
+	 * Ejecuta una retrollamada por cada controlador registrado
 	 * @param Closure $fn
 	 */
 	public function forEachController (\Closure $fn) {

@@ -9,7 +9,7 @@ namespace Irbis;
  *
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		1.0
+ * @version		2.2
  */
 class ConfigFile {
     private $ini_array;
@@ -17,6 +17,8 @@ class ConfigFile {
 
     public function __construct ($file) {
         $this->file_name = $file;
+		if (!file_exists($this->file_name))
+			file_put_contents($this->file_name, '');
     }
 
     public function get ($key) {

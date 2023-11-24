@@ -9,12 +9,12 @@ namespace Irbis;
  *
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.0
+ * @version		2.2
  */
 class Response {
 
 	/**
-	 * La ruta a la que esta respuesta pertence
+	 * La ruta solicitada a la que esta respuesta pertence
 	 * @var string
 	 */
 	private $path;
@@ -53,10 +53,6 @@ class Response {
 	public function __construct (string $path = null) {
 		$this->path = $path;
 		$this->routes = [];
-		$this->data = [
-			'status' => Request::$method == 'POST' ? 'success' : '',
-			'message' => Request::$method == 'POST' ? '¡Acción realizada!' : '',
-		];
 	}
 
 	/**
@@ -82,6 +78,7 @@ class Response {
 	 * @param array $routes
 	 */
 	public function addRoutes (array $routes) {
+		# [1,2] + [3,4] = [1,2,3,4]
 		$this->routes = array_merge($this->routes, $routes);
 	}
 
@@ -90,7 +87,7 @@ class Response {
 	 * si ya no hay rutas en la pila devuelve falso
 	 * @return bool
 	 */
-	public function prepare () : bool {
+	public function prepareRoute () : bool {
 		$this->route = array_pop($this->routes);
 		return $this->route ? true : false;
 	}
@@ -100,33 +97,32 @@ class Response {
 	 * previamente se debe llamar a 'prepare' y luego verificar
 	 * @return bool
 	 */
-	public function isReady () {
+	public function isReady () : bool {
 		return !!$this->route;
 	}
 
 	/**
-	 * Combina los datos entregados con los que ya tiene registrados
-	 * @param array $data
-	 */
-	public function setData (array $data) {
-		$this->data = array_merge($this->data, $data);
-	}
-
-	/**
-	 * Ejecuta la acción del controlador este método
-	 * debe ser usado después de llamar a 'prepare', ya que
-	 * no hará nada si no tiene un controlador para ejecutar
+	 * Si existe una Ruta lista (se debe usar prepareRoute) se ejecuta esta,
+	 * en cualquier caso devuelve un objeto Response
 	 * @return \Irbis\Response
 	 */
-	public function execute () : Response {
+	public function executeRoute () : Response {
+		$is_template = function ($template) {
+			return is_string($template) && substr($template, -5) == '.html';
+		};
+
 		if ($this->isReady()) {
 			$x = $this->route->execute($this);
+			$this->route = null;
 			if ($x !== null) {
 				if ($x instanceof Response)
 					return $x;
 
-				if (is_string($x) && substr($x, -5) == '.html') {
+				if ($is_template($x)) {
 					$this->view = $x;
+				} elseif (is_array($x) && !is_assoc($x) && $is_template($x[0])) {
+					$this->view = $x[0];
+					$this->data = $x[1] ?? [];
 				} else {
 					$this->view = null;
 					$this->data = $x;
@@ -134,16 +130,15 @@ class Response {
 			}
 		}
 
-		$this->route = null;
 		return $this;
 	}
 
 	/**
-	 * Devuelve la ruta solicitada y la ruta coíncidente para esta respuesta
-	 * @return array[string, string]
+	 * Combina los datos entregados con los que ya tiene registrados
+	 * @param array $data
 	 */
-	public function paths () {
-		return [$this->path, $this->route ? $this->route->path : null];
+	public function setData (array $data) {
+		$this->data = array_merge_recursive($this->data, $data);
 	}
 
 	/**
@@ -151,7 +146,41 @@ class Response {
 	 * @param string $url
 	 */
 	public function redirect (string $url) {
-		header('Location: '.$url);
+		header('Location: '.$url, true);
 		die('redirecting...');
+	}
+
+	/**
+	 * Establece una cabecera de respuesta
+	 */
+	public function setHeader ($key, $val = null, $replace = true, $response_code = 0) {
+		header("$key: $val", $replace, $response_code);
+	}
+
+	/**
+	 * Intenta darle un formato estandar a los datos de respuesta
+	 * convirtiendolo en un arreglo asociativo
+	 */
+	public function formatData ($_data = False) {
+		$data = $_data ?: $this->data;
+		if (!is_array($data)) {
+			$data = [
+				'status' => 'success',
+				'message' => $data
+			];
+		} else {
+			if (!is_assoc($data)) {
+				$data = [
+					'status' => 'success',
+					'message' => '',
+					'data' => $data
+				];
+			} else {
+				$data['status'] = $data['status'] ?? 'success';
+				$data['message'] = $data['message'] ?? '';
+			} 
+		}
+		if ($_data) return $data;
+		else $this->data = $data;
 	}
 }

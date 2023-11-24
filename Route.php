@@ -9,18 +9,27 @@ namespace Irbis;
  *
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.0
+ * @version		2.2
  */
 class Route {
 
 	private $controller;
 	private $method = '';
-	public $path = '';
-	public $verb = '';
+	private $path = '';
+	private $verb = '';
 
 	public function __construct (Controller $controller, string $method) {
 		$this->controller = $controller;
 		$this->method = $method;
+	}
+
+	public function setPath ($path, $verb = false) {
+		$this->path = $path;
+		if ($verb) $this->verb = $verb;
+	}
+
+	public function setVerb ($verb) {
+		$this->verb = $verb;
 	}
 
 	/**
@@ -28,7 +37,7 @@ class Route {
 	 * @param string $path
 	 */
 	public function match (string $path) : bool {
-		$sm = $path == Request::$path;
+		$sm = $path == Request::$path; # si la ruta solicita es diferente a la ruta del cliente, es una solicitud interna
 		if ($this->verb && $this->verb != Request::$method)
 			return false;
 		return $path == $this->path || Request::compare($path, $this->path, $sm);

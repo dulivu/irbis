@@ -29,6 +29,8 @@ class Request {
 	 */
 	public static $path;
 
+	private static $headers;
+
 	/**
 	 * El verbo de petición
 	 * @var string (POST|GET)
@@ -134,6 +136,12 @@ class Request {
 		return self::getFromArray($arr, $key, $def);
 	}
 
+	public static function getHeader ($key) {
+		if (!self::$headers) 
+			self::$headers = getallheaders();
+		return self::$headers[$key] ?? false;
+	}
+
 	/**
 	 * se le envía un arreglo, y se obtiene el valor
 	 * de la clave solicitada, sino existiera devuelve le valor
@@ -228,9 +236,9 @@ class Request {
  	 * Ejecuta una retrollamada por cada archivo subido del cliente
  	 * 
  	 * @param string $key el nombre de la clave
- 	 * @param Closue $callback
+ 	 * @param Closure $callback
  	 */
-	  public static function eachUpload ($key, \Closure $callback) {
+	  public static function eachUpload ($key, \Closure $callback, $errorException=false) {
 		if (!isset($_FILES[$key]))
 			return;
 
@@ -241,6 +249,8 @@ class Request {
 				$arr['tmp_name'] = $_FILES[$key]['tmp_name'][$k];
 				$arr['error'] = $_FILES[$key]['error'][$k];
 				$arr['size'] = $_FILES[$key]['size'][$k];
+				if ($errorException)
+					self::errorUpload($arr['error']);
 				$callback($arr);
 			}
 		} else {
@@ -248,12 +258,35 @@ class Request {
 		}
 	}
 
+	private static function errorUpload($error) {
+		switch ($error) {
+			case UPLOAD_ERR_OK:
+				break;
+			case UPLOAD_ERR_NO_FILE:
+				throw new RuntimeException('No se encontró un archivo.');
+			case UPLOAD_ERR_INI_SIZE:
+			case UPLOAD_ERR_FORM_SIZE:
+				throw new RuntimeException('El archivo excede el límite de tamaño.');
+			default:
+				throw new RuntimeException('Error desconocido al subir el archivo.');
+		}
+	}
+
 	/**
-	 * Determina si existen archivo para subir
-	 *
+	 * Determina si existen archivos para subir
+	 * si se le pasa una clave, busca la misma en la carga de archivos
 	 * @return bool
 	 */
-	public static function hasUploads () {
-		return !!$_FILES;
+	public static function hasUploads ($key = false) {
+		if (!$key)
+			return !!$_FILES;
+		return isset($_FILES[$key]);
+	}
+
+	public static function createURL (Controller $controller, $path) {
+		$k = array_slice(explode('\\', $controller->klass), 0, -1);
+		if (strpos($path, '/') === 0)
+			$path = substr($path, 1);
+		return self::$host.'/'.implode('/', $k).'/'.$path;
 	}
 }
