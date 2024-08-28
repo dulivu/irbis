@@ -6,6 +6,10 @@ if (DEBUG_MODE) {
 	# ini_set('display_startup_errors', 1);
 }
 
+set_error_handler(function (int $errNo, string $errMsg, string $file, int $line) { 
+	throw new \Error("$errMsg", $errNo);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Autoloader
@@ -235,7 +239,18 @@ function str_ends_with ($string, $endString) {
 
 function pathcheck($path) {
 	$path = str_replace(['/','\\'], DIRECTORY_SEPARATOR, $path);
-	if (!str_starts_with($path, DIRECTORY_SEPARATOR))
-		$path = DIRECTORY_SEPARATOR.$path;
+	if (str_starts_with($path, DIRECTORY_SEPARATOR))
+		$path = substr($path, 1);
 	return $path;
+}
+
+function path_to_namespace ($path) {
+	$path = str_replace(['/', '.php'], ['\\', ''], $path);
+	if (str_starts_with($path, '\\'))
+		$path = substr($path, 1);
+	return $path;
+}
+
+function snake_to_text ($string) {
+	return ucfirst(str_replace('_', ' ', $string));
 }

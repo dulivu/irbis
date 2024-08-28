@@ -15,7 +15,7 @@ class Route {
 
 	private $controller;
 	private $method = '';
-	private $path = '';
+	private $route = '';
 	private $verb = '';
 
 	public function __construct (Controller $controller, string $method) {
@@ -23,11 +23,9 @@ class Route {
 		$this->method = $method;
 	}
 
-	public function setPath ($path, $verb = false) {
-		$this->path = $path;
-		if ($verb) $this->verb = $verb;
+	public function setRoute ($route) {
+		$this->route = $route;
 	}
-
 	public function setVerb ($verb) {
 		$this->verb = $verb;
 	}
@@ -37,10 +35,12 @@ class Route {
 	 * @param string $path
 	 */
 	public function match (string $path) : bool {
-		$sm = $path == Request::$path; # si la ruta solicita es diferente a la ruta del cliente, es una solicitud interna
+		// si la ruta solicita es diferente a la ruta del 
+		// cliente, es una solicitud interna
+		$sm = $path == Request::$path;
 		if ($this->verb && $this->verb != Request::$method)
 			return false;
-		return $path == $this->path || Request::compare($path, $this->path, $sm);
+		return $path == $this->route || Request::compare($path, $this->route, $sm);
 	}
 
 	/**

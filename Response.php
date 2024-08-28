@@ -29,7 +29,7 @@ class Response {
 	 * La ruta preparada para responder
 	 * @var \Irbis\Route
 	 */
-	public $route;
+	private $route;
 
 	/**
 	 * La vista que utilizará para responder
@@ -52,6 +52,7 @@ class Response {
 	 */
 	public function __construct (string $path = null) {
 		$this->path = $path;
+		$this->data = [];
 		$this->routes = [];
 	}
 
@@ -117,10 +118,9 @@ class Response {
 			if ($x !== null) {
 				if ($x instanceof Response)
 					return $x;
-
 				if ($is_template($x)) {
 					$this->view = $x;
-				} elseif (is_array($x) && !is_assoc($x) && $is_template($x[0])) {
+				} elseif (is_array($x) && !is_assoc($x) && $is_template($x[0] ?? null)) {
 					$this->view = $x[0];
 					$this->data = $x[1] ?? [];
 				} else {
@@ -132,6 +132,10 @@ class Response {
 
 		return $this;
 	}
+
+	// =============================
+	// ==== HELPERS & INTERNALS ====
+	// =============================
 
 	/**
 	 * Combina los datos entregados con los que ya tiene registrados
@@ -155,32 +159,5 @@ class Response {
 	 */
 	public function setHeader ($key, $val = null, $replace = true, $response_code = 0) {
 		header("$key: $val", $replace, $response_code);
-	}
-
-	/**
-	 * Intenta darle un formato estandar a los datos de respuesta
-	 * convirtiendolo en un arreglo asociativo
-	 */
-	public function formatData ($_data = False) {
-		$data = $_data ?: $this->data;
-		if (!is_array($data)) {
-			$data = [
-				'status' => 'success',
-				'message' => $data
-			];
-		} else {
-			if (!is_assoc($data)) {
-				$data = [
-					'status' => 'success',
-					'message' => '',
-					'data' => $data
-				];
-			} else {
-				$data['status'] = $data['status'] ?? 'success';
-				$data['message'] = $data['message'] ?? '';
-			} 
-		}
-		if ($_data) return $data;
-		else $this->data = $data;
 	}
 }

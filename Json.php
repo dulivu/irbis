@@ -6,7 +6,7 @@ namespace Irbis;
 /**
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.0
+ * @version		2.2
  */
 class Json {
 
@@ -33,8 +33,8 @@ class Json {
 		throw new \RuntimeException(static::$_messages[json_last_error()]);
 	}
 
-	public static function decode(string $json, bool $assoc = false) {
-		$result = json_decode($json, $assoc);
+	public static function decode(string $json, $flags=JSON_OBJECT_AS_ARRAY, $depth=512) {
+		$result = json_decode($json, null, $depth, $flags);
 		if ($result !== null) return $result;
 		throw new \RuntimeException(static::$_messages[json_last_error()]);
 	}

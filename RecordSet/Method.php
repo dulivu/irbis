@@ -30,9 +30,10 @@ class Method extends Member {
 
 	/**
 	 * Añade un closure a la pila
+	 * para uso interno
 	 * @param Closure $fn
 	 */
-	public function stack (\Closure $fn) {
+	public function addClosure (\Closure $fn) {
 		$this->stack[] = $fn;
 	}
 

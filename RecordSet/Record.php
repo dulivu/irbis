@@ -2,6 +2,7 @@
 namespace Irbis\RecordSet;
 
 use Irbis\RecordSet;
+use Irbis\RecordSet\Backbone;
 
 
 /**
@@ -13,16 +14,11 @@ use Irbis\RecordSet;
  */
 class Record {
 
-	/**
-	 * Referencia al conjunto de registros
-	 * @var \Irbis\RecordSet\RecordSet
-	 */
 	private $recordset;
+	private $database;
+	private $backbone;
 
-	/**
-	 * Almacena los valores del registro
-	 * @var array
-	 */
+	private $is_raw;
 	private $values = [];
 	private $values_previous = [];
 
@@ -30,95 +26,56 @@ class Record {
 	 * Auxiliar, almacena los métodos que se estén ejecutando
 	 * @var array
 	 */
-	private $methods_cache = [];
+	private $mcache = [];
 
-	/**
-	 * Constructor
-	 * @param array $values
-	 * @param \Irbis\RecordSet\RecordSet $recordset
-	 */
-	public function __construct (array $values, RecordSet $recordset) {
+	public function __construct (array $values, $recordset_data, $is_raw = false) {
 		$this->values = $values;
-		$this->recordset = $recordset;
+		$this->recordset = $recordset_data['recordset'];
+		$this->backbone = $recordset_data['backbone'];
+		$this->database = $recordset_data['database'];
+		$this->is_raw = $is_raw;
 	}
 
-	/**
-	 * Método mágico, determina si una propiedad existe
-	 * @param string $prop_name
-	 */
-	public function __isset ($prop_name) {
-		return !!$this->recordset->{$prop_name};
+	public function __isset ($key) {
+		return !!$this->recordset->{$key};
 	}
 
-	/** 
-	 * Método mágico, devuelve el valor de una propiedad
-	 * @param string $prop_name
-	 */
-	public function __get ($prop_name) {
-		if ($prop_name == 'ids') return [$this->id];
-		$prop = $this->recordset->{$prop_name};
-		if ($prop->target_model) {
-			$this->values[$prop_name] = $prop->ensureRetrievedValue(
-				$this->values[$prop_name] ?? null, 
-				$this, 
-				$this->recordset->newRecordSet($prop->target_model)
-			);
-		}
-		return $prop->compute('retrieve', $this, $this->values);
+	public function __get ($key) {
+		if ($key == 'id' and !isset($this->values['id'])) return '__newid__';
+		if ($key == 'ids') return [$this->id];
+		if (str_starts_with($key, '__')) return $this->recordset->{$key};
+
+		$prop = $this->recordset->{$key};
+		$value = $this->values[$key] ?? null;
+		$value = $prop->ensureRetrievedValue($value, $this);
+		$this->values[$key] = $value;
+		return $this->values[$key];
 	}
 
-	/**
-	 * Método mágico, establece el valor de una propiedad
-	 * @param string $prop_name
-	 * @param mix $prop_value
-	 */
-	public function __set ($prop_name, $prop_value) {
-		if ($prop_name == 'id') return;
-		$this->update([$prop_name => $prop_value]);
+	public function __set ($key, $value) {
+		if ($key == 'id') return;
+		$this->update([$key => $value]);
 	}
 
-	/**
-	 * Método mágico, ejecuta un método existente en las definiciones
-	 * @param string $method
-	 * @param array $args
-	 */
-	public function __call ($method, $args) {
-		if (!array_key_exists($method, $this->methods_cache)) {
-			if (!$this->methods_cache[$method] = $this->recordset->getMethod($method)) {
-				throw new \Exception("recordset: llamada a metodo no definido '$method'");
+	public function __call ($key, $args) {
+		if (!array_key_exists($key, $this->mcache)) {
+			if (!$this->mcache[$key] = $this->backbone->getMethods($key)) {
+				throw new \Exception("recordset: llamada a metodo no definido '$key'");
 			}
 		}
 
-		$re = $this->methods_cache[$method]->call($args, $this);
-		unset($this->methods_cache[$method]);
-		return $re;
+		$r = $this->mcache[$key]->call($args, $this);
+		unset($this->mcache[$key]);
+		return $r;
 	}
 
 	public function __toString () { return "[".$this->id."]"; }
-	public function __debugInfo () { return $this->values; }
+	public function __debugInfo () { return [$this->backbone->name, $this->values]; }
 
-	/**
-	 * Actualiza los valores del registro
-	 * @param array $update
-	 */
-	public function update ($update) {
-		$this->recordset->update($update, $this);
-		return $this;
+	public function newRecordSet ($name = false) {
+		return new RecordSet($name, $this->database->name);
 	}
 
-	/**
-	 * Elimina el registro
-	 */
-	public function delete () {
-		$this->recordset->delete($this->id);
-		return $this;
-	}
-
-	/**
-	 * Establece/obtiene el valor o valores sin procesar
-	 * @param array $values | string $prop_name
-	 * @param mix $value, no es necesario si se asigna por arreglo
-	 */
 	public function raw ($prop_name, $value = null) {
 		if (is_array($prop_name)) {
 			foreach ($prop_name as $k => $v)
@@ -131,27 +88,29 @@ class Record {
 		} return $this;
 	}
 
+	public function isRaw () { 
+		return $this->is_raw; 
+	}
+
+	// ==========================================================================
+	// DML methods
+	// ==========================================================================
+
+	public function update ($update) {
+		$this->recordset->update($update, $this);
+		return $this;
+	}
+
+	public function delete () {
+		$this->recordset->delete($this->ids);
+		return $this;
+	}
+
 	/**
 	 * Obtiene el último valor de la propiedad
 	 * @param string $prop_name
 	 */
 	public function getPreviousValue ($prop_name) {
 		return $this->values_previous[$prop_name] ?? null;
-	}
-
-	/**
-	 * Obtiene el nombre del modelo
-	 * @return string
-	 */
-	public function getName () {
-		return $this->recordset->getName();
-	}
-
-	/**
-	 * Obtiene las propiedades del modelo
-	 * @return array[\Irbis\RecordSet\Property]
-	 */
-	public function getProperties () {
-		return $this->recordset->getProperties();
 	}
 }

@@ -12,7 +12,7 @@ use Irbis\Traits\Events;
 
 
 /**
- * El objeto server es el punto de entrada de la aplicación
+ * Punto de entrada de la aplicación
  * 
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
@@ -40,7 +40,10 @@ class Server {
 	protected $controllers_map = [];
 
 	/**
-	 * Arreglo asociativo con las respuesta a la petición
+	 * Arreglo asociativo con las respuesta a la petición,
+	 * las respuestas son objetos que gestionan lo que los 
+	 * controladores calcularon en función de la petición 
+	 * del cliente
 	 * @var array['path' => \Irbis\Response]
 	 */
 	protected $responses = [];
@@ -51,27 +54,44 @@ class Server {
 	/**
 	 * Realiza operaciones de encendido del servidor
 	 * @param Controller [$controllers]
-	 *  - crea el objeto 'request'
-	 *  - agrega todos los módulos a utilizar
+	 *  - inicializa el objeto 'request'
+	 *  - registra todos los módulos a utilizar
 	 */
-	public function setup (array $controllers = []) {
+	public function setup (array $applications) {
+		# se agrega este atributo para no estar llamando
+		# a la instancia en cada método que lo requiera
 		$this->request = Request::getInstance();
-		foreach ($controllers as $alias => $controller) {
+
+		foreach ($applications as $alias => $application) {
+			if (gettype($application) == 'string') {
+				$namespace = path_to_namespace($application)."\\Controller";
+				$applications[$alias] = new $namespace;
+			} else {
+				$applications[$alias] = $application;
+			}
+		}
+
+		foreach ($applications as $alias => $application) {
 			$alias = gettype($alias) == 'string' ? $alias : '';
-			$this->addController($controller, $alias);
+			$this->addController($application, $alias);
 		}
 	}
 
 	/**
-	 * Añade un nuevo controlador al servidor
-	 * @param Controller $controller, controlador a agregar
+	 * Añade un nuevo módulo al servidor
+	 * @param Controller $controller
 	 * @param string $alias, nombre alternativo del controlador
 	 * @fire 'addController'
 	 */
 	public function addController (Controller $controller, string $alias = '') {
 		$alias = $alias ?: $controller->name;
-		$this->controllers[$controller->klass] = $controller;
-		if ($alias) $this->controllers_map[$alias] = $controller->klass;
+
+		foreach ($controller->depends as $depend)
+			if (!$this->getController($depend))
+				throw new \Exception("{$controller->namespace} requiere previamente: $depend");
+		
+		$this->controllers[$controller->namespace] = $controller->doAssemble($this);
+		if ($alias) $this->controllers_map[$alias] = $controller->namespace;
 		$this->fire('addController', [$controller, $alias]);
 	}
 
@@ -79,10 +99,11 @@ class Server {
 	 * Devuelve un controlador por su nombre de clase o alias
 	 * @param string $name
 	 */
-	public function getController (string $name) : Controller {
+	public function getController (string $name) : ?Controller {
+		$name = str_replace('\Controller', '', $name);
 		if (array_key_exists($name, $this->controllers_map))
 			$name = $this->controllers_map[$name];
-		elseif (strpos($name, '\\') === 0)
+		elseif (strpos($name, '/') === 0)
 			$name = substr($name, 1);
 		return $this->controllers[$name] ?? null;
 	}
@@ -90,7 +111,7 @@ class Server {
 	/**
 	 * Devuelve un objeto response para la ruta cliente
 	 * recorre todos los controladores registrados y les solicita
-	 * entregar las Rutas registradas coíncidentes 
+	 * entregar las Rutas registradas coíncidentes con la solicitud
 	 * @param string $path
 	 */
 	protected function getResponse (string $path) : Response {
@@ -106,17 +127,23 @@ class Server {
 
 	/**
 	 * Entrega una respuesta a la petición del cliente
-	 * @param string $fake_path (optional), en caso se quiera obtener una respuesta dentro del código de un controlador
+	 * @param string $fake_path (optional), en caso se quiera obtener 
+	 * 										una respuesta dentro del código 
+	 * 										de un controlador para simular
+	 * 										herencia de rutas
 	 * @return null | \Irbis\Response
 	 */
-	public function execute (string $fake_path = '') {
+	public function execute (string $fake_path = '') : ?Response {
 		$path = $fake_path ?: $this->request->path;
 
 		$response = $this->getResponse($path);
 		$prepared = $response->prepareRoute();
 
 		// si la petición no viene del cliente
-		if ($this->responded || $fake_path) return $response->executeRoute();
+		if ($this->responded || $fake_path) {
+			$response = $response->executeRoute();
+			return [$response->view, $response->data];
+		}
 
 		// este bloque controla errores y que la ruta solicitada
 		// se encuentre registrada, prepara la respuesta final que
@@ -130,11 +157,10 @@ class Server {
 				header("HTTP/1.0 404 Not Found");
 				$response->view = $this->view_404;
 				$response->data = [
-					'status' => 'error',
-					'message' => 'Ruta solicitada no encontrada',
 					'error' => [
-						'class' => 'HttpNotFound',
-						'code' => 404
+						'code' => 404,
+						'message' => 'Ruta solicitada no encontrada',
+						'class' => 'HttpNotFound'
 					]
 				];
 			}
@@ -142,15 +168,14 @@ class Server {
 			header("HTTP/1.0 500 Internal Server Error");
 			$response->view = $this->view_500;
 			$response->data = [
-				'status' => 'error',
-				'message' => $e->getMessage(),
 				'error' => [
+					'code' => $e->getCode(),
+					'message' => $e->getMessage(),
 					'class' => get_class($e),
-					'code' => DEBUG_MODE ? $e->getCode() : 0,
-					'file' => DEBUG_MODE ? $e->getFile() : 'need debug mode',
-					'line' => DEBUG_MODE ? $e->getLine() : 0,
+					'file' => $e->getFile(),
+					'line' => $e->getLine(),
 					'trace' => DEBUG_MODE ? $e->getTrace() : [],
-				],
+				]
 			];
 		} finally {
 			$this->fire('response', [$this->request, $response]);
@@ -159,11 +184,8 @@ class Server {
 			$this->setRender();
 			$this->doRender($response);
 		}
+		return null;
 	}
-
-	// =============================
-	// ==== HELPERS & INTERNALS ====
-	// =============================
 
 	/**
 	 * Esteblece el entorno de renderizado '$this->render'

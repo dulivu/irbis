@@ -12,7 +12,7 @@ use Irbis\Traits\Singleton;
  *
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.0
+ * @version		2.2
  */
 class Request {
 	use Singleton;
@@ -182,17 +182,17 @@ class Request {
 	 * request::compare('/products/name/1', '/products/([a-z]+)/(\d+)') // true
 	 * 
 	 * @param string $path la cadena a evaluar
-	 * @param string $match la condición de evaluación
+	 * @param string $route la condición de evaluación
 	 * @param bool $saveMatches ignorar, sólo lo usa el framework
 	 *
 	 * @return bool
 	 */
-	public static function compare (string $path, string $match, bool $saveMatches = false) {
+	public static function compare (string $path, string $route, bool $saveMatches = false) {
 		$searches = array_keys(self::$patterns);
 		$replaces = array_values(self::$patterns);
 		$matched = [];
 
-		$j = str_replace($searches, $replaces, $match);
+		$j = str_replace($searches, $replaces, $route);
 		if (preg_match('#^' . $j . '$#', $path, $matched)) {
 			array_shift($matched);
 			$matchs = array_map(function ($i) {
@@ -284,9 +284,8 @@ class Request {
 	}
 
 	public static function createURL (Controller $controller, $path) {
-		$k = array_slice(explode('\\', $controller->klass), 0, -1);
 		if (strpos($path, '/') === 0)
 			$path = substr($path, 1);
-		return self::$host.'/'.implode('/', $k).'/'.$path;
+		return self::$host.'/'.$controller->application.'/'.$path;
 	}
 }

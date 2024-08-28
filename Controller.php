@@ -14,54 +14,59 @@ namespace Irbis;
  */
 abstract class Controller {
 
-	/**
-	 * Nombre completo y nombre alias de la clase
-	 * @var string
-	 */
-	public $klass;
-	public $name;
-	public $directory;
-	public $state;
+	# Configuraciones del controlador a ser heredadas
+	public $name; # nombre alías del módulo, simple y de una sóla palabra
+	public $depends = []; # dependencias de otros modulos namespaces
+	public $has_routes = false; # determina si el controlador tiene rutas de cliente
 
-	/**
-	 * Almacena las rutas encontradas en la clase
-	 * @var array
-	 */
-	public $routes = false;
+	# Valores de control interno
+	public $namespace; # espacio de nombre único en la aplicación, e: DemoApps/Sample1
+	protected $server; # instancia del servidor
+	private $assembled = false; # determina si el controlador ha sido ensamblado al servidor
+	private $state; # archivo de configuración del módulo, persistencia del estado del módulo
+	private $directory; # directorio fisico donde se encuentra el módulo
+	private $routes = false; # almacena las rutas en este controlador
+
+	const FILE_PATH = 1; # 0001
+	const FILE_OPEN = 2; # 0010
+	const FILE_INCLUDE = 4; # 0100
+	const FILE_BINARY = 8; # 1000
 
 	/**
 	 * Constructor
-	 * Inicializa las variables 'klass' y 'directory'
+	 * Inicializa las variables 'namespace' y 'directory'
 	 */
 	public function __construct () {
 		$klass = get_class($this);
 		$s = DIRECTORY_SEPARATOR;
 		$k = array_slice(explode('\\', $klass), 0, -1);
+		$d = BASE_PATH.$s.implode($s, $k);
 
-		$this->klass = $klass;
+		$this->namespace = implode('/', $k);
 		$this->directory = BASE_PATH.$s.implode($s, $k);
-		$this->state = new ConfigFile($this->directory.$s.'controller_state.ini');
 	}
 
 	/**
 	 * Este método se hereda y puede ser sobreescrito
 	 * se llama sólo a la petición del cliente una única vez
+	 * al utilizar llamadas 'super' ya no se vuelve a ejectuar
 	 */
 	public function init () {}
 
 	/**
-	 * devuelve un arreglo de Rutas que coínciden con la ruta de cliente
+	 * devuelve un arreglo de Rutas que coínciden con la solicitud del cliente
 	 * llena por primera vez todas las rutas existentes en el controlador
+	 * uso exclusivo de la clase \Server
 	 * 
 	 * @param string $path, ruta de cliente a coincidir
 	 * @return array[\Irbis\Route]
 	 */
-	public function getMatchedRoutes (string $path) {
+	public function getMatchedRoutes (string $path) : array {
 		$matchs = [];
 
-		if (!$this->routes)
+		if (!$this->has_routes)
 			return $matchs;
-		if ($this->routes === true)
+		else
 			$this->fillRoutes();
 
 		foreach ($this->routes as $route) {
@@ -75,24 +80,38 @@ abstract class Controller {
 
 	/**
 	 * Rellena el atributo $routes con los métodos que registren una ruta
+	 * uso exclusivo de la clase \Server
 	 */
-	protected function fillRoutes () {
+	private function fillRoutes () {
 		$this->routes = [];
 		$klass = new \ReflectionClass($this);
+
+		$reduce = function ($pm) {
+			foreach ($pm[0] as $k => $r)
+				$routes[] = $pm[2][$k];
+			return $routes ?? [];
+		};
 
 		foreach ($klass->getMethods() as $method) {
 			$comment = $method->getDocComment();
 			if (preg_match_all('#@(route|verb) (.*?)\R#', $comment, $pm)) {
 				if (in_array('route', $pm[1])) {
+					$matches = $reduce($pm);
 					$route = new Route($this, $method->name);
-					foreach ($pm[1] as $i => $m) {
-						if ($m == 'route') $route->setPath($pm[2][$i]);
-						# TODO: el método ya distingue el verbo, falta 
-						# separar los arreglos del controlador con el verbo
-						# incluído
-						if ($m == 'verb') $route->setVerb($pm[2][$i]);
+					foreach ($matches as $match) {
+						$route->setRoute($match);
+						# TODO: manejar multiples rutas por método
+						# ya está construido para aceptarlas, falta administrarlas
+
+						// foreach ($pm[1] as $i => $m) {
+						// 	if ($m == 'route') $route->setRoute($pm[2][$i]);
+						// 	# TODO: el método ya distingue el verbo, falta 
+						// 	# separar los arreglos del controlador con el verbo
+						// 	# incluído, hacer mas pruebas
+						// 	if ($m == 'verb') $route->setVerb($pm[2][$i]);
+						// }
+						$this->routes[] = $route;
 					}
-					$this->routes[] = $route;
 				}
 			}
 		}
@@ -102,35 +121,60 @@ abstract class Controller {
 	// ==== HELPERS & INTERNALS ====
 	// =============================
 
-	/**
-	 * intenta llamar un archivo 'php' dentro del directorio del módulo
-	 * @param string $path, ruta de archivo a incluir
-	 * @param boolean $return, si es 'true' devuelve lo que el directorio retorne
-	 * @return mix
-	 */
-	public function include ($path, $return = false) {
-		if (file_exists($this->directory.$path)) {
-			$inc = include($this->directory.$path);
-			return $return ? $inc : true;
-		} return false;
+	public function assemble () {}
+
+	public function isAssembled () : bool {
+		return $this->assembled;
 	}
 
-	/**
-	 * Envoltura para llamar a la función previa
-	 * de otro controlador, simula llamada por herencia
-	 */
-	protected function super ($fake_path = '') {
-		$server = Server::getInstance();
-		return $server->respond($fake_path);
+	public function doAssemble (Server $server) : Controller {
+		# esté método es utilizado por el servidor
+		# cuando el controllador es agregado
+		$this->server = $server;
+		$this->assembled = true;
+		return $this;
 	}
-	
-	/**
-	 * devuelve una ruta concatenada con la ruta base del controlador
-	 * @param string $path		ruta a concatenar
-	 * @return string			ruta concatenada
-	 */
-	public function directory (string $path = '') : string {
-		return $this->directory.$path;
+
+	public function file (string $file = "", $options = 1) {
+		if (!$file) return $this->directory;
+
+		$path = pathcheck($file);
+		$path = [$this->directory.DIRECTORY_SEPARATOR.$file];
+		if (strpos($file, '*') !== false)
+			$path = glob($path[0]);
+		# option 1 = retorna la ruta completa
+		# option 2 = retorna el archivo binario para ser modificado
+		# option 3 = incluye el archivo usando include
+		if ($options & Controller::FILE_PATH) {
+			return count($path) != 1 ? $path : ($path[0] ?? False);
+		}
+
+		if ($options & Controller::FILE_OPEN) {
+			# TODO: implementar quizá fopen($file, 'w')
+			# para abrir el archivo en modo escritura
+		}
+		
+		if ($options & Controller::FILE_INCLUDE) {
+			$incs = [];
+			foreach ($path as $p) {
+				if (file_exists($p)) {
+					$inc = include($p);
+					$incs[] = $inc ?: true;
+				} else $incs[] = false;
+			}
+			return count($path) != 1 ? $incs : ($incs[0] ?? False);
+		}
+	}
+
+	public function state ($key, $val=null) {
+		if (!$this->state) {
+			$config_file = $this->file("controller_state.ini");
+			$this->state = new ConfigFile($config_file);
+		}
+		if ($val !== null) {
+			$this->state->set($key, $val);
+			return $this;
+		} else return $this->state->get($key);
 	}
 
 	protected function putFile (string $file_path, $file_key, $permissions=0777) {
@@ -146,8 +190,8 @@ abstract class Controller {
 			mkdir($this->directory.$dirname, $permissions, TRUE);
 
 		if (Request::hasUploads($file_key)) {
-			// TODO: validar que si se sube más de un archivo se tenga
-			// que determinar un directorio y usar el nombre del archivo subido
+			# TODO: validar que si se sube más de un archivo se tenga
+			# que determinar un directorio y usar el nombre del archivo subido
 
 			Request::eachUpload($file_key, function ($upload) use ($basepath, $dirname, $basename) {
 				move_uploaded_file($upload['tmp_name'], $basepath.$dirname.($basename ?? $upload['name']));
@@ -164,5 +208,15 @@ abstract class Controller {
 		if (file_exists($this->directory.$file_path))
 			return file_get_contents($this->directory.$file_path);
 		return False;
+	}
+
+	protected function super (string $fake_path = '') {
+		$server = Server::getInstance();
+		return $server->execute($fake_path);
+	}
+
+	protected function application ($name) : ?Controller {
+		$server = Server::getInstance();
+		return $server->getController($name);
 	}
 }
