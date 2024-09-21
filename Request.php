@@ -206,16 +206,6 @@ class Request {
 	}
 
 	/**
-	 * Determina si un valor está presente
-	 * en la cabecera CONTENT_TYPE
-	 * @return bool
-	 */
-	public static function hasContent ($type) {
-		return isset($_SERVER['CONTENT_TYPE']) && 
-			strpos($_SERVER['CONTENT_TYPE'], $type) !== false;
-	}
-
-	/**
 	 * Trabaja en conjunto con la global 'REQUEST_EMULATION' comprueba si un
 	 * método http fue enviado, con emulación activa para métodos PUT o DELETE
 	 * se compara con una variable '_method' en el cuerpo de un método POST
@@ -223,13 +213,32 @@ class Request {
 	 * @param string $method
 	 * @return bool
 	 */
-	public static function isMethod (string $method) {
-		$method = strtoupper($method);
-		if (REQUEST_EMULATION && ($method == 'PUT' || $method == 'DELETE')) {
+	public static function is (string $method) {
+		if (
+			REQUEST_EMULATION &&
+			($method == PUT_REQUEST || $method == DELETE_REQUEST)) 
+		{
 			return strtoupper(self::input('_method', '')) == $method;
+		} elseif (
+			isset($_SERVER['CONTENT_TYPE']) && 
+			strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false && 
+			self::$method == 'POST' &&
+			$method == JSON_REQUEST
+		) {
+			return true;
+		} elseif (
+			self::hasUploads() &&
+			self::$method == 'POST' &&
+			$method == FILE_REQUEST
+		) {
+			return true;
 		} else {
 			return self::$method == strtoupper($method);
 		}
+	}
+
+	public static function getRawContent ($default = '') {
+		return file_get_contents('php://input') ?: $default;
 	}
 	
 	/**
@@ -238,7 +247,7 @@ class Request {
  	 * @param string $key el nombre de la clave
  	 * @param Closure $callback
  	 */
-	  public static function eachUpload ($key, \Closure $callback, $errorException=false) {
+	  public static function forEachUpload ($key, \Closure $callback, $errorException=false) {
 		if (!isset($_FILES[$key]))
 			return;
 
@@ -254,6 +263,8 @@ class Request {
 				$callback($arr);
 			}
 		} else {
+			if ($errorException)
+				self::errorUpload($_FILES[$key]['error']);
 			$callback($_FILES[$key]);
 		}
 	}

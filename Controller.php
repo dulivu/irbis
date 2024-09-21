@@ -16,8 +16,10 @@ abstract class Controller {
 
 	# Configuraciones del controlador a ser heredadas
 	public $name; # nombre alías del módulo, simple y de una sóla palabra
-	public $depends = []; # dependencias de otros modulos namespaces
-	public $has_routes = false; # determina si el controlador tiene rutas de cliente
+	public $has_routes 		= false; # determina si el controlador tiene rutas de cliente
+	public $installable 	= false; # determina si el módulo es instalable
+	public $depends 		= []; # dependencias de otros modulos namespaces
+	public $views 			= 'views'; # directorio de vistas
 
 	# Valores de control interno
 	public $namespace; # espacio de nombre único en la aplicación, e: DemoApps/Sample1
@@ -137,16 +139,18 @@ abstract class Controller {
 
 	public function file (string $file = "", $options = 1) {
 		if (!$file) return $this->directory;
-
+		
 		$path = pathcheck($file);
-		$path = [$this->directory.DIRECTORY_SEPARATOR.$file];
+		$path = [$this->directory.DIRECTORY_SEPARATOR.$path];
 		if (strpos($file, '*') !== false)
-			$path = glob($path[0]);
+			$path = glob($path[0], GLOB_NOSORT|GLOB_BRACE);
+
 		# option 1 = retorna la ruta completa
 		# option 2 = retorna el archivo binario para ser modificado
 		# option 3 = incluye el archivo usando include
 		if ($options & Controller::FILE_PATH) {
-			return count($path) != 1 ? $path : ($path[0] ?? False);
+			return strpos($file, '*') !== false ? 
+				$path : ($path[0] ?? False);
 		}
 
 		if ($options & Controller::FILE_OPEN) {
@@ -172,7 +176,10 @@ abstract class Controller {
 			$this->state = new ConfigFile($config_file);
 		}
 		if ($val !== null) {
-			$this->state->set($key, $val);
+			if ($val == REMOVE_STATE)
+				$this->state->set($key, null);
+			else
+				$this->state->set($key, $val);
 			return $this;
 		} else return $this->state->get($key);
 	}
@@ -203,19 +210,12 @@ abstract class Controller {
 		}
 	}
 
-	protected function getFile (string $file_path) {
-		$file_path = pathcheck($file_path);
-		if (file_exists($this->directory.$file_path))
-			return file_get_contents($this->directory.$file_path);
-		return False;
-	}
-
 	protected function super (string $fake_path = '') {
 		$server = Server::getInstance();
 		return $server->execute($fake_path);
 	}
 
-	protected function application ($name) : ?Controller {
+	protected function controller ($name) : ?Controller {
 		$server = Server::getInstance();
 		return $server->getController($name);
 	}

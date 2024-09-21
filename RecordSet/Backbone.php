@@ -92,13 +92,18 @@ class Backbone {
 	public function getProperties ($key = false) {
 		if (is_string($key))
 			return clone $this->properties[$key] ?? false;
-		elseif (is_array($key))
-			return array_map(function ($prop) {
+		elseif (is_array($key)) {
+			$arr = array_map(function ($prop) {
 				return clone $this->properties[$prop] ?? false;
 			}, $key);
-		else return array_map(function ($prop) {
-			return clone $this->properties[$prop] ?? false;
-		}, array_keys($this->properties));
+			return array_combine($key, $arr);
+		} else {
+			$keys = array_keys($this->properties);
+			$arr = array_map(function ($prop) {
+				return clone $this->properties[$prop] ?? false;
+			}, $keys);
+			return array_combine($keys, $arr);
+		}
 	}
 
 	public function getMethods ($key = false) {

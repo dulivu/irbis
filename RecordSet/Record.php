@@ -69,8 +69,10 @@ class Record {
 		return $r;
 	}
 
-	public function __toString () { return "[".$this->id."]"; }
-	public function __debugInfo () { return [$this->backbone->name, $this->values]; }
+	public function __toString () { return "".$this->id; }
+	public function __debugInfo () { 
+		return [$this->backbone->name, $this->values]; 
+	}
 
 	public function newRecordSet ($name = false) {
 		return new RecordSet($name, $this->database->name);

@@ -23,10 +23,10 @@ class RecordSet extends \ArrayObject {
 	private $mcache = [];
 	private static $binds = [];
 
-	public $__selecting = false;
-	public $__inserting = false;
-	public $__updating = false;
-	public $__deleting = false;
+	public $__is_selecting = false;
+	public $__is_inserting = false;
+	public $__is_updating = false;
+	public $__is_deleting = false;
 	public $__index_before_insert = 0;
 	public $__index_after_insert = 0;
 	public $__parent_record = [false,false]; # [/Irbis/RecordSet/Record, /Irbis/RecordSet/Property]
@@ -40,6 +40,7 @@ class RecordSet extends \ArrayObject {
 
 	public function __isset ($key) {
 		if ($key == 'ids') return true;
+		if (str_starts_with($key, '__')) return true;
 		return $this->backbone->hasProperty($key);
 	}
 
@@ -61,7 +62,7 @@ class RecordSet extends \ArrayObject {
 				return $this->backbone->getMethods();
 			if ($key == '__name')
 				return $this->backbone->name;
-			return $this->backbone->statics[$key];
+			return $this->backbone->statics[$key] ?? null;
 		}
 
 		if (!$prop = $this->backbone->getProperties($key))
@@ -246,7 +247,7 @@ class RecordSet extends \ArrayObject {
 		if (!$inserts) return $this;
 		if (!is_array($inserts)) throw new \Exception("insert: datos mal formateados");
 		if (is_assoc($inserts)) $inserts = [$inserts];
-		$this->__inserting = true;
+		$this->__is_inserting = true;
 
 		// ==============================================================
 		// establecer variables auxiliares
@@ -311,12 +312,12 @@ class RecordSet extends \ArrayObject {
 		}, []);
 
 		if ($parent) {
-			if (!$parent->__inserting)
+			if (!$parent->__is_inserting)
 				$this->__insert($query, $values, $children);
 			else $this->__parent_record_execute = [$query, $values, $children];
 		} else $this->__insert($query, $values, $children);
 		
-		$this->__inserting = false;
+		$this->__is_inserting = false;
 		return $this;
 	}
 
@@ -430,6 +431,7 @@ class RecordSet extends \ArrayObject {
 				$count++;
 			}
 		}
+
 		$this->__select();
 		$this->__update_nm();
 		return $this;

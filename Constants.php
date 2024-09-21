@@ -78,3 +78,29 @@ if (!defined("DB_INI")) define("DB_INI", 'database.ini');
 |
 */
 if (!defined("MOD_REWRITE")) define("MOD_REWRITE", false);
+/*
+|--------------------------------------------------------------------------
+| REQUEST
+|--------------------------------------------------------------------------
+|
+| Se definen los tipos de peticiones shortcuts para usar en la
+| clase Request->is([METHOD_REQUEST])
+|
+*/
+if (!defined("GET_REQUEST")) define("GET_REQUEST", 'GET');
+if (!defined("POST_REQUEST")) define("POST_REQUEST", 'POST');
+if (!defined("PUT_REQUEST")) define("PUT_REQUEST", 'PUT');
+if (!defined("DELETE_REQUEST")) define("DELETE_REQUEST", 'DELETE');
+if (!defined("JSON_REQUEST")) define("JSON_REQUEST", 'JSON');
+if (!defined("FILE_REQUEST")) define("FILE_REQUEST", 'FILE');
+/*
+|--------------------------------------------------------------------------
+| MOD_REWRITE
+|--------------------------------------------------------------------------
+|
+| Una variable para el estado del controlador, en caso se requiera
+| quitar un estado existente.
+| $controller->state('key', REMOVE_STATE);
+|
+*/
+if (!defined("REMOVE_STATE")) define("REMOVE_STATE", uniqid());

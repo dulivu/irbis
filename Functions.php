@@ -197,6 +197,11 @@ function camelize ($string) {
 	}, $string);
 }
 
+function file_extension ($file_name) {
+	$extension = explode(".", $file_name);
+	return $extension[count($extension) - 1] ?? "";
+}
+
 function _crypto_rand_secure ($min, $max) {
     $range = $max - $min;
     if ($range < 1) return $min; // not so random...
@@ -235,6 +240,10 @@ function str_ends_with ($string, $endString) {
     if ($len == 0)
         return false;
     return (substr($string, -$len) === $endString);
+}
+
+function str_contains($haystack, $needle) {
+	return $needle !== '' && mb_strpos($haystack, $needle) !== false;
 }
 
 function pathcheck($path) {
