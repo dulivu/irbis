@@ -50,6 +50,8 @@ class Server {
 	protected $responded = False;
 
 	protected $request;
+	
+	protected $middlewares = [];
 
 	/**
 	 * Realiza operaciones de encendido del servidor

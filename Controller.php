@@ -30,7 +30,7 @@ abstract class Controller {
 	private $routes = false; # almacena las rutas en este controlador
 
 	const FILE_PATH = 1; # 0001
-	const FILE_OPEN = 2; # 0010
+	const FILE_CONTENT = 2; # 0010
 	const FILE_INCLUDE = 4; # 0100
 	const FILE_BINARY = 8; # 1000
 
@@ -153,9 +153,14 @@ abstract class Controller {
 				$path : ($path[0] ?? False);
 		}
 
-		if ($options & Controller::FILE_OPEN) {
-			# TODO: implementar quizá fopen($file, 'w')
-			# para abrir el archivo en modo escritura
+		if ($options & Controller::FILE_CONTENT) {
+			$contents = [];
+			foreach ($path as $p) {
+				if (file_exists($p)) {
+					$contents[] = file_get_contents($p);
+				} else $contents[] = false;
+			}
+			return count($path) != 1 ? $contents : ($contents[0] ?? false);
 		}
 		
 		if ($options & Controller::FILE_INCLUDE) {
