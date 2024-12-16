@@ -47,7 +47,7 @@ class Server {
 	 * @var array['path' => \Irbis\Response]
 	 */
 	protected $responses = [];
-	protected $responded = False;
+	protected $responded = False; # status
 
 	protected $request;
 	
@@ -80,7 +80,7 @@ class Server {
 	}
 
 	/**
-	 * Añade un nuevo módulo al servidor
+	 * Añade un nuevo módulo (por medio de su controlador) al servidor
 	 * @param Controller $controller
 	 * @param string $alias, nombre alternativo del controlador
 	 * @fire 'addController'
@@ -88,12 +88,15 @@ class Server {
 	public function addController (Controller $controller, string $alias = '') {
 		$alias = $alias ?: $controller->name;
 
+		# TODO: control de dependencias, valida que los controladores requeridos
+		# estén previamente registrados, sino lanza un error.
+		# Esto puede causar problemas al usar módulos dinámicos no agregados en el index
 		foreach ($controller->depends as $depend)
 			if (!$this->getController($depend))
-				throw new \Exception("{$controller->namespace} requiere previamente: $depend");
+				throw new \Exception("{$controller->key()} requiere previamente: $depend");
 		
-		$this->controllers[$controller->namespace] = $controller->doAssemble($this);
-		if ($alias) $this->controllers_map[$alias] = $controller->namespace;
+		$this->controllers[$controller->key()] = $controller->assembleTo($this);
+		if ($alias) $this->controllers_map[$alias] = $controller->key();
 		$this->fire('addController', [$controller, $alias]);
 	}
 

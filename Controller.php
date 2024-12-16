@@ -15,20 +15,20 @@ namespace Irbis;
 abstract class Controller {
 
 	# Configuraciones del controlador a ser heredadas
-	public $name; # nombre alías del módulo, simple y de una sóla palabra
-	public $has_routes 		= false; # determina si el controlador tiene rutas de cliente
-	public $installable 	= false; # determina si el módulo es instalable
-	public $depends 		= []; # dependencias de otros modulos namespaces
-	public $views 			= 'views'; # directorio de vistas
+	public $name; 						# nombre alías del módulo, simple y de una sóla palabra
+	public $has_routes 		= false; 	# determina si el controlador tiene rutas de cliente
+	public $installable 	= false; 	# determina si el módulo es instalable
+	public $depends 		= []; 		# dependencias de otros modulos namespaces
+	public $views 			= 'views'; 	# directorio de vistas
 
 	# Valores de control interno
-	public $namespace; # espacio de nombre único en la aplicación, e: DemoApps/Sample1
-	protected $server; # instancia del servidor
-	private $assembled = false; # determina si el controlador ha sido ensamblado al servidor
+	protected $namespace; # espacio de nombre único en la aplicación, e: DemoApps/Sample1
+	protected $server; # instancia del servidor, si fue ensamblado tiene uno
 	private $state; # archivo de configuración del módulo, persistencia del estado del módulo
 	private $directory; # directorio fisico donde se encuentra el módulo
 	private $routes = false; # almacena las rutas en este controlador
 
+	# Constantes de comportamiento de algunos métodos
 	const FILE_PATH = 1; # 0001
 	const FILE_CONTENT = 2; # 0010
 	const FILE_INCLUDE = 4; # 0100
@@ -47,13 +47,6 @@ abstract class Controller {
 		$this->namespace = implode('/', $k);
 		$this->directory = BASE_PATH.$s.implode($s, $k);
 	}
-
-	/**
-	 * Este método se hereda y puede ser sobreescrito
-	 * se llama sólo a la petición del cliente una única vez
-	 * al utilizar llamadas 'super' ya no se vuelve a ejectuar
-	 */
-	public function init () {}
 
 	/**
 	 * devuelve un arreglo de Rutas que coínciden con la solicitud del cliente
@@ -119,22 +112,34 @@ abstract class Controller {
 		}
 	}
 
+	public function assembleTo (Server $server) : Controller {
+		$this->server = $server;
+		return $this;
+	}
+
+	public function key () {
+		return $this->namespace;
+	}
+
 	// =============================
 	// ==== HELPERS & INTERNALS ====
 	// =============================
 
-	public function assemble () {}
-
-	public function isAssembled () : bool {
-		return $this->assembled;
+	public function init () {
+		# Este método se hereda y puede ser sobreescrito
+		# se llama sólo a la petición del cliente una única vez
+		# al utilizar llamadas 'super' ya no se vuelve a ejectuar
 	}
 
-	public function doAssemble (Server $server) : Controller {
-		# esté método es utilizado por el servidor
-		# cuando el controllador es agregado
-		$this->server = $server;
-		$this->assembled = true;
-		return $this;
+	public function assemble () {
+		# Este es un método comodín no tiene una función específica
+		# se piensa que otros controladores le puedan encontrar un uso
+		# por el momento, un módulo maestro lo usa para ejecutar
+		# instalaciones de otros módulos, como un controlador maestro
+	}
+
+	public function isAssembled () : bool {
+		return !!$this->server;
 	}
 
 	public function file (string $file = "", $options = 1) {
@@ -215,6 +220,10 @@ abstract class Controller {
 		}
 	}
 
+	// =============================
+	// ========= SHORTCUTS =========
+	// =============================
+	
 	protected function super (string $fake_path = '') {
 		$server = Server::getInstance();
 		return $server->execute($fake_path);
