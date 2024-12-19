@@ -96,13 +96,18 @@ Notese que la clase **Controller** del módulo está dentro de un espacio de nom
 Los métodos que responden a una ruta solicitada por el cliente se declaran con una directiva (@route) en los comentarios del mismo, el valor que sigue a la directiva es la ruta, existen 3 comodines que se pueden usar para rutas relativas. Ejemplos:
 
 > @route / => enruta a la raiz del dominio http://localhost ó http://localhost/index.php.
+
 > @route /users => http://localhost/index.php/users.
+
 
 *se puede prescindir de 'index.php' si se configura el archivo .htaccess y se activa MOD_REWRITE = true.*  
 
 > @route /users/(:num) => http://localhost/index.php/users/1.
+
 > @route /users/(:any) => http://localhost/index.php/users/jhon.
+
 > @route /users/(:all) => http://localhost/index.php/users/jhon/5/admin.
+
 
 *esta última incluye signos especiales como '/' para casos especiales, no se recomienda usar ya que puede causar conflictos con otras rutas*
 
