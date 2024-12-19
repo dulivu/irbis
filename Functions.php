@@ -230,25 +230,31 @@ function str_token ($length=20) {
     return $token;
 }
 
-function str_starts_with ($string, $startString) {
-    $len = strlen($startString);
-    return (substr($string, 0, $len) === $startString);
+if (!function_exists("str_starts_with")) {
+	function str_starts_with ($string, $startString) {
+		$len = strlen($startString);
+		return (substr($string, 0, $len) === $startString);
+	}
 }
 
-function str_ends_with ($string, $endString) {
-    $len = strlen($endString);
-    if ($len == 0)
-        return false;
-    return (substr($string, -$len) === $endString);
+if (!function_exists("str_ends_with")) {
+	function str_ends_with ($string, $endString) {
+		$len = strlen($endString);
+		if ($len == 0)
+			return false;
+		return (substr($string, -$len) === $endString);
+	}
 }
 
-function str_contains($haystack, $needle) {
-	return $needle !== '' && mb_strpos($haystack, $needle) !== false;
+if (!function_exists("str_contains")) {
+	function str_contains($haystack, $needle) {
+		return $needle !== '' && mb_strpos($haystack, $needle) !== false;
+	}
 }
 
-function pathcheck($path) {
-	$path = str_replace(['/','\\'], DIRECTORY_SEPARATOR, $path);
-	if (str_starts_with($path, DIRECTORY_SEPARATOR))
+function pathcheck($path, $separator = DIRECTORY_SEPARATOR) {
+	$path = str_replace(['/','\\'], $separator, $path);
+	if (str_starts_with($path, $separator))
 		$path = substr($path, 1);
 	return $path;
 }

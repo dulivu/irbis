@@ -50,6 +50,8 @@ class DataBase extends \PDO {
 			return self::$instances[$name];
 		
 		if (!$o) {
+			if (!file_exists(DB_INI))
+				file_put_contents(DB_INI, "[main]\ndsn = \"sqlite:database.db3\"");
 			$ini = @parse_ini_file(DB_INI, true);
 			$o = $ini[$name] ?? null;
 		}

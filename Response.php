@@ -116,12 +116,14 @@ class Response {
 			$x = $this->route->execute($this);
 			$this->route = null;
 			if ($x !== null) {
-				if ($x instanceof Response)
+				if ($x instanceof Response) {
+					$x->view = $x->view ? pathcheck($x->view, '/') : $x->view;
 					return $x;
+				}
 				if ($is_template($x)) {
-					$this->view = $x;
+					$this->view = pathcheck($x, '/');
 				} elseif (is_array($x) && !is_assoc($x) && $is_template($x[0] ?? null)) {
-					$this->view = $x[0];
+					$this->view = pathcheck($x[0], '/');
 					$this->data = $x[1] ?? [];
 				} else {
 					$this->view = null;

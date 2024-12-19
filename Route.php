@@ -15,7 +15,7 @@ class Route {
 
 	private $controller;
 	private $method = '';
-	private $route = '';
+	private $routes = [];
 	private $verb = '';
 
 	public function __construct (Controller $controller, string $method) {
@@ -24,7 +24,7 @@ class Route {
 	}
 
 	public function setRoute ($route) {
-		$this->route = $route;
+		$this->routes[] = $route;
 	}
 	public function setVerb ($verb) {
 		$this->verb = $verb;
@@ -40,7 +40,11 @@ class Route {
 		$sm = $path == Request::$path;
 		if ($this->verb && $this->verb != Request::$method)
 			return false;
-		return $path == $this->route || Request::compare($path, $this->route, $sm);
+		foreach ($this->routes as $route) {
+			if ($path == $route || Request::compare($path, $route, $sm))
+				return true;
+		}
+		return false;
 	}
 
 	/**

@@ -81,9 +81,10 @@ abstract class Controller {
 		$this->routes = [];
 		$klass = new \ReflectionClass($this);
 
-		$reduce = function ($pm) {
+		$reduce = function ($pm, $mode) {
 			foreach ($pm[0] as $k => $r)
-				$routes[] = $pm[2][$k];
+				if ($pm[1][$k] == $mode)
+					$routes[] = $pm[2][$k];
 			return $routes ?? [];
 		};
 
@@ -91,22 +92,16 @@ abstract class Controller {
 			$comment = $method->getDocComment();
 			if (preg_match_all('#@(route|verb) (.*?)\R#', $comment, $pm)) {
 				if (in_array('route', $pm[1])) {
-					$matches = $reduce($pm);
+					$matches = $reduce($pm, 'route');
 					$route = new Route($this, $method->name);
 					foreach ($matches as $match) {
 						$route->setRoute($match);
-						# TODO: manejar multiples rutas por método
-						# ya está construido para aceptarlas, falta administrarlas
-
-						// foreach ($pm[1] as $i => $m) {
-						// 	if ($m == 'route') $route->setRoute($pm[2][$i]);
-						// 	# TODO: el método ya distingue el verbo, falta 
-						// 	# separar los arreglos del controlador con el verbo
-						// 	# incluído, hacer mas pruebas
-						// 	if ($m == 'verb') $route->setVerb($pm[2][$i]);
-						// }
-						$this->routes[] = $route;
 					}
+					if (in_array('verb', $pm[1])) {
+						$verbs = $reduce($pm, 'verb');
+						$route->setVerb($verbs[0]);
+					}
+					$this->routes[] = $route;
 				}
 			}
 		}

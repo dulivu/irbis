@@ -138,7 +138,7 @@ class Server {
 	 * 										herencia de rutas
 	 * @return null | \Irbis\Response
 	 */
-	public function execute (string $fake_path = '') : ?Response {
+	public function execute (string $fake_path = '') {
 		$path = $fake_path ?: $this->request->path;
 
 		$response = $this->getResponse($path);
@@ -146,8 +146,7 @@ class Server {
 
 		// si la petición no viene del cliente
 		if ($this->responded || $fake_path) {
-			$response = $response->executeRoute();
-			return [$response->view, $response->data];
+			return $response->executeRoute();
 		}
 
 		// este bloque controla errores y que la ruta solicitada

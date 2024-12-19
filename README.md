@@ -3,7 +3,10 @@ PHP MVC Micro-Framework.
 Fácil de utilizar y enfocado al desarrollo modular conjuntamente con el patrón MVC.
 
 ## Instalación
-+ Composer: **composer require dulivu/irbis**
++ [Composer](https://getcomposer.org/download/) (recomendada):
+```sh
+composer require dulivu/irbis
+```
 + Manual: descargue los fuentes y coloque la carpeta del framework en su proyecto, renombrela como 'Irbis'
 
 ## Como usarlo, principales consideraciones:
@@ -19,34 +22,37 @@ El punto de entrada de la aplicación siempre será 'index.php' o su equivalente
 
 *index.php*
 ```php
-// Aquí llamamos a nuestro autocargador: require('Irbis/Server.php') ó require('vendor/autoload.php')
+// Aquí llamamos a nuestro autocargador: 
+// require('Irbis/Server.php')
+require('vendor/autoload.php')
 
 // Obtenemos la instancia única del servidor
-// esta debe ser siempre nuestra primera línea de código
 $server = \Irbis\Server::getInstance();
 
 // añadimos nuestro primer módulo llamado 'Test'
 // dentro de cada módulo siempre debe haber una clase controladora
-// podemos llamarla como queramos, pero por convención la llamamos 'Controller'
+// puede llamarla como desee, pero se recomienda el nombre 'Controller'
 $server->addController(new \Test\Controller);
 // la lógica de nuestra aplicación irá dentro de estos controladores
+// y puede ir agregando más módulos con funcionalidades específicas
 
-// Por último brindamos la respuesta de la petición
-// esta debe ser siempre nuestra última línea de código
-$server->respond();
+// Finalmente ejecutamos el servidor
+$server->execute();
 ```
 
-### Directorios y Módulos
-Un módulo básico comprende un directorio con un archivo controlador, ejemplo:
-- Irbis (framework, si usamos composer este estará dentro de 'vendor')
-- Test (módulo)
-  - views (directorio para nuestras vistas)
+### Módulos y estructura
+Un módulo estará encapsulado dentro de un directorio con su respectivo controlador.
+Siguiendo el ejemplo del módulo 'Test' el directorio del sitio web tendría esta apariencia:
+```plaintext
+- Test (nombre del módulo)
+  - views (directorio para guardar vistas html)
     - index.html
     - contact.html
   - Controller.php (Controlador del módulo Test)
 - index.php (punto de entrada)
+```
 
-### Módulo, Controlador y el Auto-Cargador
+### Módulos, Controlador y el Auto-Cargador
 Un módulo es un directorio con un archivo controlador dentro, puede organizar cada módulo con sus propios sub-directorios y archivos; por ejemplo, un carpeta 'views' donde guarde todas las vistas que utilice su módulo.
 
 El controlador será un objeto que la instancia 'Server' administrará. Debe heredar de la clase base \Irbis\Controller y podrá llevar métodos que respondan a rutas que el cliente pueda solicitar.
@@ -58,9 +64,9 @@ namespace Test;
 use Irbis\Controller as iController;
 
 class Controller extends iController {
-  // si nuestro controlador debe registrar sus métodos como rutas de petición
-  // este atributo se debe declarar 'verdadero'
-  public $routes = true;
+  // es importante aunque no obligatorio declarar estos atributos
+  public $name          = 'test';   // nombre alias del módulo
+  public $has_routes    = true;     // si este controlador gestionará rutas de cliente
   
   /**
    * Este método responderá a la ruta base
@@ -69,6 +75,13 @@ class Controller extends iController {
    */
   public function index () {
     return 'Hola mundo!';
+  }
+
+  /**
+   * @route /contact
+   */
+  public function contact () {
+
   }
 }
 ```
@@ -82,13 +95,20 @@ Notese que la clase **Controller** del módulo está dentro de un espacio de nom
 ## Métodos enrutados
 Los métodos que responden a una ruta solicitada por el cliente se declaran con una directiva (@route) en los comentarios del mismo, el valor que sigue a la directiva es la ruta, existen 3 comodines que se pueden usar para rutas relativas. Ejemplos:
 
-> @route / => enruta a la raiz del dominio http://localhost ó http://localhost/index.php.  
-> @route /users => enruta a una dirección tipo http://localhost/index.php/users.  
+> @route / => enruta a la raiz del dominio http://localhost ó http://localhost/index.php.
+> @route /users => http://localhost/index.php/users.
+
 *se puede prescindir de 'index.php' si se configura el archivo .htaccess y se activa MOD_REWRITE = true.*  
-> @route /users/(:num), para números, enruta a una dirección de tipo http://localhost/index.php/users/1.  
-> @route /users/(:any), para cadenas o números, enruta a una dirección de tipo http://localhost/index.php/users/jhon.  
-> @route /users/(:all), para cadenas o números (incluido signos especiales como: '/'), enruta a una dirección tipo http://localhost/index.php/users/jhon/5/admin.  
-> @route /users/(:any)/(:num), tambien podemos combinar comodines (http://localhost/index.php/users/jhon/5), tener cuidado con el comodín (:all) que puede causar conflictos con otras rutas. Según este ejemplo esta ruta nunca se cumpliría ya que tambien coíncide en el ejemplo anterior todo dependiendo del orden en que registramos nuestros módulos.
+
+> @route /users/(:num) => http://localhost/index.php/users/1.
+> @route /users/(:any) => http://localhost/index.php/users/jhon.
+> @route /users/(:all) => http://localhost/index.php/users/jhon/5/admin.
+
+*esta última incluye signos especiales como '/' para casos especiales, no se recomienda usar ya que puede causar conflictos con otras rutas*
+
+> @route /users/(:any)/(:num) => http://localhost/index.php/users/jhon/5
+
+*es posible combinar comodines para un mejor control de las rutas*
 
 Si nuestro método responde a una ruta relativa, podemos obtener el valor del comodin con el objeto **$request** y su método 'path' que recibe como parámetro el índice donde se ubica el comodín como si de un arreglo se tratase.
 
@@ -104,7 +124,7 @@ $val2 = $request->path(1); // 5, para el ejemplo 6
 ```
 
 ## Administrar peticiones y respuestas
-Cada método que responde a una petición cliente recibe 2 parámetros, **$request** y **$response** en ese orden. Si creamos un formulario html y este envia datos a una ruta, estos datos se obtienen por medio del objeto **$request**, y para enviar datos al cliente usamos el objeto **$response**, entre otras carácteristicas.
+Cada método que responde a una petición cliente recibe 2 parámetros, **$request** y **$response** en ese orden. Si creamos un formulario html y este envia datos a una ruta, estos datos se capturan por medio del objeto **$request**.
 
 */Test/views/index.html*
 ```html
@@ -123,31 +143,29 @@ namespace Test;
 use Irbis\Controller as iController;
 
 class Controller extends iController {
-  public $routes = true;
+  public $name          = 'test';
+  public $has_routes    = true;
   
   /**
    * @route /
    */
   public function index ($request, $response) {
+    $data = [];
     // validamos que el verbo de la petición sea POST
-    if ($request->isMethod('POST')) {
-      // el objeto '$response' tiene una propiedad '$data' que es un arreglo asociativo
-      // podemos ir agregando todos los datos que necesitemos mostrar al cliente a dicho arreglo
-      $response->data['greeting'] = 'Hola '.$request->input('username');
-      // el método 'input' del objeto '$request' obtiene los valores enviados por POST
-      // si queremos obtener valores enviados por GET usamos el método 'query'
-      // ambos reciben como parámetro el nombre del valor enviado
+    if ($request->is('POST')) {
+      // obtenemos el valor de lo enviando por el cliente del objeto '$request'
+      $data['greeting'] = 'Hola '.$request->input('username');
     }
     
-    // Para mostrar una vista usamos la propiedad '$view' del objeto '$response'
-    // le asignamos la ruta donde se encuentra la vista a mostrar
-    $response->view = 'Test/views/index.html';
-    // finalmente los datos que fuimos agregando podrán ser utilizados como variables en la vista
+    return ['Test/views/index.html', $data];
   }
 }
 ```
 
-Si nuestro **método enrutado** no devuelve ningún valor, como respuesta se utilizará el objeto $response que se le pasa. Caso contrario, se creará un nuevo objeto $response que tendrá la propiedad '$data' el valor devuelto del método. Por eso, en nuestro ejemplo anterior, al devoler una cadena (*return 'hola mundo!'*) esta se muestra directamente al cliente.
+El método **método enrutado** puede devolver 3 formas diferentes de respuesta.
+- puede devolver un texto que coíncida con la ruta de una vista html para mostrarla
+- puede devolver un arreglo de 2 elementos, el primero la ruta de una vista, y el segundo los datos que usará dicha vista.
+- si devuelve cualquier otra forma de valor, se intentará mostrar directamente ese valor al cliente.
 
 ## Conexión a base de datos
 Se utiliza una clase que extiende de la clase PDO, por lo que puede conectar a diferentes motores de bases de datos dependiendo de cuales tenga implementados, para el ejemplo lo haremos con MySQL.
@@ -172,46 +190,54 @@ Se utiliza una clase que extiende de la clase PDO, por lo que puede conectar a d
 namespace Test;
 
 use Irbis\Controller as iController;
-use Irbis\DataBase as DB;
+use Irbis\DataBase as DB; // agregar el espacio de nombre
 
 class Controller extends iController {
-  public $routes = true;
+  public $name          = 'test';
+  public $has_routes    = true;
   
   /**
-   * @route /
-   */
-  public function index ($request, $response) {
-    if ($request->isMethod('POST')) {
-      $response->data['greeting'] = 'Hola '.$request->input('username');
-    }
-
-    $response->view = 'Test/views/index.html';
-  }
-  
-  /**
-   * para el ejemplo debe tener una base de datos 
-   * y una tabla llamada 'persons' con registros
    * @route /persons
    */
   public function persons ($request, $response) {
-    // getInstance(), devuelve una conexión a base de datos
-    // utiliza el nombre registrado en el archivo 'database.ini'
-    $db = DB::getInstance('main');
-    $stmt = $db->query("SELECT * FROM `persons`");
-    
-    $response->data['persons'] = $stmt->fetchAll();
+    $db = DB::getInstance(); // obtener la instancia de base de datos
+    try {
+      $stmt = $db->query("SELECT * FROM `persons`");
+    } catch (\PDOException $e) {
+      $this->createTable();
+      $this->filltable();
 
-    // para devolver la ruta de la vista a usar, podemos usar
-    // la propieda del controlador '$dir' es la ruta del
-    // directorio donde se encuetra el controlador actual
-    $response->view = $this->dir.'/views/persons.html';
+      $stmt = $db->query("SELECT * FROM `persons`");
+    }
+
+    $data['persons'] = $stmt->fetchAll();
+
+    return ["TestApps/WebSite/views/persons.html", $data];
+  }
+
+  private function createTable () {
+    $db = DB::getInstance();
+    $db->query("CREATE TABLE IF NOT EXISTS `persons` (
+      `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+      `name` TEXT NOT NULL,
+      `age` INTEGER NOT NULL
+    )");
+  }
+
+  private function fillTable () {
+    $db = DB::getInstance();
+    $db->query("INSERT INTO persons (nombre, apellido, telefono) VALUES ('Jhon', 'Doe', '12345678')");
+    $db->query("INSERT INTO persons (nombre, apellido, telefono) VALUES ('Jane', 'Doe', '87654321')");
+    $db->query("INSERT INTO persons (nombre, apellido, telefono) VALUES ('Mario', 'Bross', '74125835')");
   }
 }
 ```
 
-Previamente deberemos tener un archivo de configuración (database.ini) en la raíz de nuestro proyecto, **Se recomienda utilizar reglas de acceso en el servidor web para evitar el acceso accidental a estos archivos por seguridad.**
+Observará que agregamos dos métodos, uno para crear la tabla y otro para llenar los datos, en caso la consulta nos devuelva un error (no existe la tabla persons).
 
-*database.ini*
+También si observa su directorio se habrá creado un archivo 'database.ini', que contiene la conexión por defecto a la base de datos, por defecto utiliza sqlite pero puede reconfigurar este archivo y conectar a otros gestores de base de datos que PDO acepte.
+
+*database.ini ejemplo de conexión a mysql*
 ```html
 [main]
 dsn = "mysql:host=127.0.0.1;dbname=test"  
@@ -219,7 +245,7 @@ user = root
 pass = ****  
 ```
 
-*Para apache puedes usar la siguiente regla de seguridad, para evitar el acceso a archivos de configuración*
+*Para apache puedes usar la siguiente regla de seguridad, para evitar el acceso a archivos de configuración en tu archivo .htaccess*
 ```html
 <Files ~ "\.ini$">
   Order allow,deny
@@ -230,10 +256,10 @@ pass = ****
 Para el ejemplo, si accedemos en local a [http://localhost/index.php/persons](http://localhost/index.php/persons), podremos visualizar la lista de personas registradas.
 
 ## Modularidad
-Finalmente el objetivo del framwework es la modularidad, poder generar código a través de capas de módulos, evitando en mayor medida la modificación de código previo. Para el ejemplo agregaremos otro módulo que sobreescribirá la ruta '/persons' y añadirá un formulario para agregar personas. Primero creamos un nuevo directorio 'Test2' (el nuevo módulo) y dentro un archivo controlador 'Controller.php'. Quedando nuestro proyecto de la siguiente forma:
+Finalmente el principal objetivo del framwework es la modularidad, poder generar código a través de capas de módulos, evitando en mayor medida la modificación de código previo. Para el ejemplo añadiremos otro módulo que sobreescribirá la ruta '/persons' y añadirá un formulario para agregar personas. Primero creamos un nuevo directorio 'Test2' (el nuevo módulo), y dentro, un archivo controlador 'Controller.php'. Quedando nuestro proyecto de la siguiente forma:
 
 *directorio*
-- Irbis (framework, si usamos composer este estará dentro de 'vendor')
+```plaintext
 - Test (modulo 1)
   - views
     - index.html
@@ -245,20 +271,20 @@ Finalmente el objetivo del framwework es la modularidad, poder generar código a
   - Controller.php
 - index.php (punto de entrada)
 - database.ini (nuestro archivo de configuracion)
+```
 
 En nuestro archivo 'index.php' registraremos nuestro nuevo módulo añadiendo su controlador respectivo.
 
 *index.php*
  ```php
-require('Irbis/Server.php');
+require('vendor/autoload.php');
 
 $server = \Irbis\Server::getInstance();
 
 $server->addController(new \Test\Controller);
-// registramos nuestro nuevo controlador
-$server->addController(new \Test2\Controller);
+$server->addController(new \Test2\Controller); // registramos nuestro nuevo controlador
 
-$server->respond();
+$server->execute();
  ```
  
 */Test2/Controller.php*
@@ -270,32 +296,27 @@ use Irbis\Controller as iController;
 use Irbis\DataBase as DB;
 
 class Controller extends iController {
-  public $routes = true;
+  public $name = 'test2';
+  public $has_routes = true;
   
   /**
-   * el método responderá a la misma ruta que en el otro controlador, al ser este
-   * módulo el último registrado su método será el que tenga preferencia para responder
+   * sobreescribimos la ruta y el método del otro controlador
    * @route /persons
    */
-  public function persons ($request, $response) {
-    $db = DB::getInstance('main');
+  public function persons ($request) {
+    $db = DB::getInstance();
 
-    if ($request->isMethod('POST')) {
-      $stmt = $db->prepare("INSERT INTO `persons` VALUES (?, ?, ?)");
-      // el método 'input' del objeto 'request' puede recibir un arreglo
-      // con los nombres de los valores que queremos obtener del POST
+    if ($request->is('POST')) {
+      $stmt = $db->prepare("INSERT INTO `persons` (nombre, apellido, telefono) VALUES (?, ?, ?)");
+      // capturamos los valores del cliente por el objeto '$request'
       $stmt->execute($request->input(['nombre', 'apellido', 'telefono']));
     }
     
-    // el método 'getServer' del controlador nos devuelve la instancia única del objeto 'Server'
-    // el método 'respond' del servidor, al ser llamado nuevamente dentro de un controlador
-    // ejecutará la lógica del modulo anteriormente registrado, en este caso 'Test' y devolverá
-    // el objeto '$response' que procesó
-    // por último le cambiamos la vista por la nueva y devolvemos el nuevo objeto $response
+    // obtenemos la respuesta del anterior controlador
     $response = $this->super();
-    $response->view = 'Test2/views/persons.html';
-    // si en el método enrutado devolvemos un objeto '$response' diferente
-    // este será el que se procesará para la respuesta al cliente
+    // cambiamos la vista a mostrar por una nueva
+    $response->view = "Test2/views/persons.html";
+    // devolvemos la respuesta
     return $response;
   }
 }
@@ -317,30 +338,30 @@ class Controller extends iController {
 De esta forma, si el nuevo módulo presentara algún problema de código o quisieramos regresar el sistema a una versión anterior, simplemente comentamos la línea donde se agrega este nuevo módulo y todo funcionaría como antes. Y al final todo dependerá de que tan desacoplados podemos codificar nuestros módulos.
 
 ```php
-require('Irbis/Server.php');
+require('vendor/autoload.php');
 
 $server = \Irbis\Server::getInstance();
 
 $server->addController(new \Test\Controller);
-// registramos nuestro nuevo controlador
+// comentamos la línea y el nuevo controlador no se agregará
 // $server->addController(new \Test2\Controller);
 
-$server->respond();
+$server->execute();
 ```
 
-**Observaciones:** es importante el orden en el que se agregan los módulos al sistema, los métodos enrutados del último módulo agregado tendrán preferencia para responder al cliente, al llamar al método 'respond()' nuevamente, irá ejecutando cada método para esa ruta en orden inverso. No es obligatorio llamar al método 'respond()', esto se hace cuando queremos ejecutar lógica previa.
+**NOTA:** es importante el orden en el que se agregan los módulos al sistema, los métodos enrutados del último módulo agregado tendrán preferencia para responder al cliente.
 
 ## Constantes
-El framework declara algunas constantes en caso estas no hayan sido previamente declaradas, podemos controlar su valor en nuestro archivo de entrada 'index.php', deberemos declararlas antes de llamar a nuestro archivo principal 'server.php'. Estas sirven para modificar algunos comportamientos del framework.
+El framework declara algunas constantes en caso estas no hayan sido previamente declaradas, podemos controlar su valor en nuestro archivo de entrada 'index.php', deberemos declararlas al inicio. Estas sirven para modificar algunos comportamientos del framework.
 
 *index.php*
 ```php
 // aquí podremos declarar nuestras constantes.
 define('MOD_REWRITE', true);
-require('Irbis/Server.php');
+require('vendor/autoload.php');
 $server = \Irbis\Server::getInstance();
 $server->addController(new \Test\Controller);
-$server->respond();
+$server->execute();
 ```
 
 **MOD_REWRITE** (por defecto, falso), si es verdadero las rutas no requerirán que se declare explicitamente el archivo 'index.php', para esta característica primero se debe configurar el servidor (para apache el archivo .htaccess por ejemplo).
@@ -355,8 +376,8 @@ RewriteRule ^ index.php?$1 [QSA,L]
 ```
 
 **DB_INI** (por defecto, 'database.ini'), indica la ruta donde se encuentra el archivo de configuracion de base de datos.  
-**REQUEST_EMULATION** (por defecto, falso), si es verdadero el método $request->isMethod(*$string*) validará también verbos PUT y DELETE que vayan en el cuerpo del documento en una variable '\_method'.  
-**DEBUG_MODE** (por defecto, falso), si es verdadero se muestra más información de errores en las respuestas.  
+**REQUEST_EMULATION** (por defecto, falso), si es verdadero el método $request->is(*$string*) validará también verbos PUT y DELETE que vayan en el cuerpo del documento en una variable '\_method'.  
+**DEBUG_MODE** (por defecto, falso), si es verdadero se muestra más información del error que se pueda producir.  
 **DEFAULT_VIEW** (por defecto, 'index'), es posible devolver o asignar de forma dinámica la ruta de la vista a responder. el valor de esta constante se utilizará en caso no haya un valor enviado desde el cliente.
 
 ```php
