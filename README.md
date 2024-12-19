@@ -167,7 +167,7 @@ class Controller extends iController {
 }
 ```
 
-El método **método enrutado** puede devolver 3 formas diferentes de respuesta.
+El **método enrutado** puede devolver 3 formas diferentes de respuesta.
 - puede devolver un texto que coíncida con la ruta de una vista html para mostrarla
 - puede devolver un arreglo de 2 elementos, el primero la ruta de una vista, y el segundo los datos que usará dicha vista.
 - si devuelve cualquier otra forma de valor, se intentará mostrar directamente ese valor al cliente.
