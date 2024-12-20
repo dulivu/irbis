@@ -13,6 +13,11 @@ use Irbis\Traits\Events;
 
 /**
  * Punto de entrada de la aplicación
+ * TODO LIST
+ * middlewares
+ * i18n
+ * Cron Jobs
+ * 
  * 
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
@@ -53,6 +58,11 @@ class Server {
 	
 	protected $middlewares = [];
 
+	private function ensureRequest () {
+		if (!$this->request)
+			$this->request = Request::getInstance();
+	}
+
 	/**
 	 * Realiza operaciones de encendido del servidor
 	 * @param Controller [$controllers]
@@ -60,9 +70,7 @@ class Server {
 	 *  - registra todos los módulos a utilizar
 	 */
 	public function setup (array $applications) {
-		# se agrega este atributo para no estar llamando
-		# a la instancia en cada método que lo requiera
-		$this->request = Request::getInstance();
+		$this->ensureRequest();
 
 		foreach ($applications as $alias => $application) {
 			if (gettype($application) == 'string') {
@@ -86,6 +94,7 @@ class Server {
 	 * @fire 'addController'
 	 */
 	public function addController (Controller $controller, string $alias = '') {
+		$this->ensureRequest();
 		$alias = $alias ?: $controller->name;
 
 		# TODO: control de dependencias, valida que los controladores requeridos

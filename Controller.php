@@ -32,31 +32,23 @@ abstract class Controller {
 	const FILE_PATH = 1; # 0001
 	const FILE_CONTENT = 2; # 0010
 	const FILE_INCLUDE = 4; # 0100
-	const FILE_BINARY = 8; # 1000
+	const FILE_UPLOAD = 8; # 1000
 
-	/**
-	 * Constructor
-	 * Inicializa las variables 'namespace' y 'directory'
-	 */
 	public function __construct () {
 		$klass = get_class($this);
 		$s = DIRECTORY_SEPARATOR;
 		$k = array_slice(explode('\\', $klass), 0, -1);
 		$d = BASE_PATH.$s.implode($s, $k);
 
+		# inicialización de variables
 		$this->namespace = implode('/', $k);
 		$this->directory = BASE_PATH.$s.implode($s, $k);
 	}
 
-	/**
-	 * devuelve un arreglo de Rutas que coínciden con la solicitud del cliente
-	 * llena por primera vez todas las rutas existentes en el controlador
-	 * uso exclusivo de la clase \Server
-	 * 
-	 * @param string $path, ruta de cliente a coincidir
-	 * @return array[\Irbis\Route]
-	 */
 	public function getMatchedRoutes (string $path) : array {
+		# $path, ruta solicitada por el cliente
+		# este método debe devolver una lista de rutas [Irbis/Route]
+		# que coincidan con la solicitud del cliente
 		$matchs = [];
 
 		if (!$this->has_routes)
@@ -73,11 +65,12 @@ abstract class Controller {
 		return $matchs;
 	}
 
-	/**
-	 * Rellena el atributo $routes con los métodos que registren una ruta
-	 * uso exclusivo de la clase \Server
-	 */
 	private function fillRoutes () {
+		# si las rutas ya fueron registradas, no se vuelve a ejecutar
+		if ($this->routes) return;
+
+		# registra la rutas declaradas de este controlador, busca
+		# en todos sus métodos y analiza cuales responden a una ruta
 		$this->routes = [];
 		$klass = new \ReflectionClass($this);
 
@@ -108,6 +101,7 @@ abstract class Controller {
 	}
 
 	public function assembleTo (Server $server) : Controller {
+		# se asigna la instancia servidor a este controlador
 		$this->server = $server;
 		return $this;
 	}
@@ -120,67 +114,31 @@ abstract class Controller {
 	// ==== HELPERS & INTERNALS ====
 	// =============================
 
-	public function init () {
-		# Este método se hereda y puede ser sobreescrito
-		# se llama sólo a la petición del cliente una única vez
-		# al utilizar llamadas 'super' ya no se vuelve a ejectuar
-	}
+	public function init () {}
 
 	public function assemble () {
-		# Este es un método comodín no tiene una función específica
+		# TODO: buscar otra forma de implementarlo
+		# este es un método comodín no tiene una función específica
 		# se piensa que otros controladores le puedan encontrar un uso
 		# por el momento, un módulo maestro lo usa para ejecutar
 		# instalaciones de otros módulos, como un controlador maestro
 	}
 
 	public function isAssembled () : bool {
+		# TODO: se usa con el de arriba
 		return !!$this->server;
 	}
 
-	public function file (string $file = "", $options = 1) {
-		if (!$file) return $this->directory;
-		
-		$path = pathcheck($file);
-		$path = [$this->directory.DIRECTORY_SEPARATOR.$path];
-		if (strpos($file, '*') !== false)
-			$path = glob($path[0], GLOB_NOSORT|GLOB_BRACE);
-
-		# option 1 = retorna la ruta completa
-		# option 2 = retorna el archivo binario para ser modificado
-		# option 3 = incluye el archivo usando include
-		if ($options & Controller::FILE_PATH) {
-			return strpos($file, '*') !== false ? 
-				$path : ($path[0] ?? False);
-		}
-
-		if ($options & Controller::FILE_CONTENT) {
-			$contents = [];
-			foreach ($path as $p) {
-				if (file_exists($p)) {
-					$contents[] = file_get_contents($p);
-				} else $contents[] = false;
-			}
-			return count($path) != 1 ? $contents : ($contents[0] ?? false);
-		}
-		
-		if ($options & Controller::FILE_INCLUDE) {
-			$incs = [];
-			foreach ($path as $p) {
-				if (file_exists($p)) {
-					$inc = include($p);
-					$incs[] = $inc ?: true;
-				} else $incs[] = false;
-			}
-			return count($path) != 1 ? $incs : ($incs[0] ?? False);
-		}
-	}
-
 	public function state ($key, $val=null) {
+		# permite tener un estado de esta controlador sin usar bd
+		# ayuda en configuraciones y persistencia de datos
 		if (!$this->state) {
 			$config_file = $this->file("controller_state.ini");
 			$this->state = new ConfigFile($config_file);
 		}
 		if ($val !== null) {
+			# se puede usar la constante REMOVE_STATE 
+			# para eliminar un valor
 			if ($val == REMOVE_STATE)
 				$this->state->set($key, null);
 			else
@@ -189,30 +147,68 @@ abstract class Controller {
 		} else return $this->state->get($key);
 	}
 
-	protected function putFile (string $file_path, $file_key, $permissions=0777) {
-		$file_path = pathcheck($file_path); # agrega un '/' al final si no lo tiene
-		$path_data = pathinfo($file_path); # extrae la información de la ruta
+	public function file (string $file = "", $options = 1) {
+		if (!$file) return $this->directory.DIRECTORY_SEPARATOR;
+		
+		$path = pathcheck($file);
+		$path = [$this->directory.DIRECTORY_SEPARATOR.$path];
+		$has_wildcard = strpos($file, '*') !== false;
+		if ($has_wildcard)
+			$path = glob($path[0], GLOB_NOSORT|GLOB_BRACE);
 
-		$_is_dir = str_ends_with($file_path, '/') || str_ends_with($file_path, '\\'); # si termina en '/' es un directorio
-		$basepath = $this->directory;
-		$dirname = $_is_dir ? $file_path : $path_data['dirname'].DIRECTORY_SEPARATOR;
-		$basename = $_is_dir ? false : $path_data['basename'];
-
-		if (!is_dir($this->directory.$dirname))
-			mkdir($this->directory.$dirname, $permissions, TRUE);
-
-		if (Request::hasUploads($file_key)) {
-			# TODO: validar que si se sube más de un archivo se tenga
-			# que determinar un directorio y usar el nombre del archivo subido
-
-			Request::eachUpload($file_key, function ($upload) use ($basepath, $dirname, $basename) {
-				move_uploaded_file($upload['tmp_name'], $basepath.$dirname.($basename ?? $upload['name']));
-			});
-		} else {
-			if (!$basename)
-				throw new \Exception('Controller: debe determinar un nombre de archivo');
-			file_put_contents($basepath.$dirname.$basename, $file_key);
+		if (gettype($options) == 'string') {
+			$path_data = pathinfo($path[0]);
+			if (!is_dir($path_data['dirname']))
+				mkdir($path_data['dirname'], 0777, TRUE);
+			file_put_contents($path[0], $options);
+			return true;
 		}
+
+		if (is_callable($options)) {
+			$controller = $this;
+			if (!Request::hasUploads($file)) return false;
+			Request::forEachUpload($file, function ($upload_data) use ($controller, $options) {
+				$path = $options($upload_data);
+				if ($path) {
+					$path = $controller->file($path);
+					$path_data = pathinfo($path);
+					if (!is_dir($path_data['dirname']))
+						mkdir($path_data['dirname'], 0777, TRUE);
+					move_uploaded_file($upload_data['tmp_name'], $path);
+				}
+			}, true);
+			return true;
+		}
+
+		# FILE_PATH = retorna la ruta completa
+		# FILE_CONTENT = retorna el archivo binario para ser modificado
+		# FILE_INCLUDE = incluye el archivo usando include
+		if ($options & Controller::FILE_PATH) {
+			return $has_wildcard ? $path : ($path[0] ?? False);
+		}
+
+		if ($options & Controller::FILE_CONTENT) {
+			$contents = [];
+			foreach ($path as $p) {
+				if (file_exists($p)) {
+					$contents[$p] = file_get_contents($p);
+				} else $contents[$p] = false;
+			}
+			return count($path) != 1 ? $contents : ($contents[$path[0]] ?? false);
+		}
+		
+		if ($options & Controller::FILE_INCLUDE) {
+			$incs = [];
+			foreach ($path as $p) {
+				if (file_exists($p)) {
+					$inc = include($p);
+					$incs[$p] = $inc ?: true;
+				} else $incs[$p] = false;
+			}
+			return count($path) != 1 ? $incs : ($incs[$path[0]] ?? False);
+		}
+
+		return false;
 	}
 
 	// =============================
