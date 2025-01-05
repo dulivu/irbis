@@ -56,7 +56,7 @@ class Server {
 
 	protected $request;
 	
-	protected $middlewares = [];
+	protected $middlewares = []; # TODO
 
 	private function ensureRequest () {
 		if (!$this->request)
@@ -191,7 +191,7 @@ class Server {
 				]
 			];
 		} finally {
-			$this->fire('response', [$this->request, $response]);
+			$this->fire('response', [$this->request, &$response]);
 			if (!$response->view)
 				die($response."");
 			$this->setRender();

@@ -222,7 +222,6 @@ class Request {
 		} elseif (
 			isset($_SERVER['CONTENT_TYPE']) && 
 			strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false && 
-			self::$method == 'POST' &&
 			$method == JSON_REQUEST
 		) {
 			return true;
