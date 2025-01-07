@@ -191,7 +191,7 @@ class Server {
 				]
 			];
 		} finally {
-			$this->fire('response', [$this->request, &$response]);
+			$this->fire('response', [&$response]);
 			if (!$response->view)
 				die($response."");
 			$this->setRender();
