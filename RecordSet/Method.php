@@ -33,7 +33,7 @@ class Method extends Member {
 	 * para uso interno
 	 * @param Closure $fn
 	 */
-	public function addClosure (\Closure $fn) {
+	public function append (\Closure $fn) {
 		$this->stack[] = $fn;
 	}
 

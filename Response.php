@@ -44,6 +44,7 @@ class Response {
 	 * @var array|mix
 	 */
 	public $data;
+	public $json;
 
 
 	/**
@@ -159,7 +160,7 @@ class Response {
 	/**
 	 * Establece una cabecera de respuesta
 	 */
-	public function setHeader ($key, $val = null, $replace = true, $response_code = 0) {
-		header("$key: $val", $replace, $response_code);
+	public function header ($header, $replace = true, $response_code = 0) {
+		header($header, $replace, $response_code);
 	}
 }

@@ -114,30 +114,39 @@ class Property extends Member {
 		if ($this->target_model)
 			$emptyRecordSet = $record->newRecordSet($this->target_model);
 
-		if ($this->type == 'n1' && (!$value instanceof Record || $value->isRaw())) {
+		if ($this->type == 'n1' && is_numeric($value)) {
 			$value = $emptyRecordSet->select($value);
 			return $value[0] ?? null;
 		}
 
-		if ($this->type == '1n' && (!$value instanceof RecordSet || $value->isRaw())) {
+		if ($this->type == '1n' && (!$value instanceof RecordSet)) {
 			$value = $emptyRecordSet->select(["{$this->target_property}:=" => $record->id]);
-			$value->__parent_record = [$record, $this];
+			$value->{'$parent_record'} = $record;
+			$value->{'$parent_property'} = $this;
 		}
 
-		if ($this->type == 'nm' && (!$value instanceof RecordSet || $value->isRaw())) {
+		if ($this->type == 'nm' && (!$value instanceof RecordSet)) {
 			$value = $emptyRecordSet;
-			$value->__parent_record = [$record, $this];
-			
-			$query = "SELECT `{$this->target_model}`.* 
-				FROM `{$this->target_model}`
-				INNER JOIN `{$this->nm_string}` 
-					ON `{$this->nm_string}`.`$this->name` = `{$this->target_model}`.`id`
-				WHERE `{$this->nm_string}`.`{$this->target_property}` = ?";
-			
+			$value->{'$parent_record'} = $record;
+			$value->{'$parent_property'} = $this;
+			$query = $value->{'@backbone'}->selectNmQuery($this);
 			$stmt = $value->execute($query, [$record->id]);
 			while ($fetch = $stmt->fetch(\PDO::FETCH_ASSOC)) {
 				$value[] = $value->newRecord($fetch);
 			}
+		}
+
+		switch ($this->type) {
+			case 'boolean': $value = (bool) $value; break;
+			case 'int': 
+			case 'integer':
+			case 'tintyint':
+			case 'smallint':
+				$value = (int) $value; break;
+			case 'float': 
+			case 'decimal':
+			case 'double':
+				$value = (float) $value; break;
 		}
 
 		$compute = $this->retrieve;
@@ -156,38 +165,45 @@ class Property extends Member {
 		
 		$value = $value === null ? $this->default : $value;
 		if ($value && $this->type == 'n1') {
-			$value = $this->ensureRecord($value, $record);
+			$value = $this->ensureValueRecord($value, $record);
 		}
 		if ($value && ($this->type == '1n' || $this->type == 'nm')) {
-			$value = $this->ensureRecordSet($value, $record);
+			$value = $this->ensureValueRecordSet($value, $record);
 		}
 		return $value;
 	}
 
-	private function ensureRecord ($value, $record) {
+	private function ensureValueRecord ($value, $record) {
 		if ($value instanceof Record) {
-			if ($value->__name != $this->target_model) {
+			if ($value->{'@name'} != $this->target_model) {
 				throw new \Exception("recordset: modelo de referencia incompatible");
 			}
 			return $value;
 		}
 
 		$emptyRecordSet = $record->newRecordSet($this->target_model);
-		$emptyRecordSet->{is_assoc($value) ? 'insert' : 'raw'}($value);
+		if (is_assoc($value))
+			$emptyRecordSet->insert($value);
+		elseif (is_numeric($value))
+			$emptyRecordSet->select($value);
+		else 
+			throw new \Exception("recordset: valor no válido para '{$this->name}', {$value}");
 		return $emptyRecordSet[0] ?? null;
 	}
 
-	private function ensureRecordSet ($value, $record) {
+	private function ensureValueRecordSet ($value, $record) {
 		if ($value instanceof RecordSet) {
-			if ($value->__name != $this->target_model) {
+			if ($value->{'@name'} != $this->target_model) {
 				throw new \Exception("recordset: modelo de referencia incompatible");
 			}
-			$value->__parent_record = [$record, $this];
+			$value->{'$parent_record'} = $record;
+			$value->{'$parent_property'} = $this;
 			return $value;
 		}
 
 		$emptyRecordSet = $record->newRecordSet($this->target_model);
-		$emptyRecordSet->__parent_record = [$record, $this];
+		$emptyRecordSet->{'$parent_record'} = $record;
+		$emptyRecordSet->{'$parent_property'} = $this;
 		
 		$arr = array_reduce($value, function ($carry, $item) {
 			$carry[(is_array($item) ? 'i' : 's')][] = $item;
@@ -195,7 +211,7 @@ class Property extends Member {
 		}, ['i' => [], 's' => []]);
 		
 		if ($arr['i']) $emptyRecordSet->insert($arr['i']);
-		if ($arr['s']) $emptyRecordSet->raw($arr['s']);
+		if ($arr['s']) $emptyRecordSet->select($arr['s']);
 		return $emptyRecordSet;
 	}
 }

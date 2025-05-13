@@ -9,6 +9,7 @@ irbis_loader();
 
 use Irbis\Traits\Singleton;
 use Irbis\Traits\Events;
+use Irbis\Exceptions\HttpException;
 
 
 /**
@@ -33,8 +34,10 @@ class Server {
 	 * Vistas por defecto para errores
 	 * @var string
 	 */
-	public $view_404 = __DIR__.'/404.html';
-	public $view_500 = __DIR__.'/500.html';
+	private $http_error_views = [
+		404 => __DIR__.'/404.html',
+		500 => __DIR__.'/500.html',
+	];
 
 	/**
 	 * Arreglo asociativo con todos los controladores 
@@ -61,6 +64,23 @@ class Server {
 	private function ensureRequest () {
 		if (!$this->request)
 			$this->request = Request::getInstance();
+	}
+
+	public function setHttpError ($key, $views=false) {
+		if (is_array($key)) {
+			foreach ($key as $k => $v) {
+				$this->setHttpError($k, $v);
+			}
+		} else {
+			$this->http_error_views[$key] = $views;
+		}
+	}
+
+	public function getHttpError ($key) {
+		if (array_key_exists($key, $this->http_error_views)) {
+			return $this->http_error_views[$key];
+		}
+		return $this->http_error_views[500];
 	}
 
 	/**
@@ -163,23 +183,20 @@ class Server {
 		// el cliente recibirá
 		try {
 			$this->responded = True;
+			foreach ($this->controllers as $ctrl) { $ctrl->init(); }
 			if ($prepared) {
-				foreach ($this->controllers as $ctrl) { $ctrl->init(); }
 				$response = $response->executeRoute();
 			} else {
-				header("HTTP/1.0 404 Not Found");
-				$response->view = $this->view_404;
-				$response->data = [
-					'error' => [
-						'code' => 404,
-						'message' => 'Ruta solicitada no encontrada',
-						'class' => 'HttpNotFound'
-					]
-				];
+				throw new HttpException('Not Found', 404);
 			}
 		} catch (\Throwable $e) {
-			header("HTTP/1.0 500 Internal Server Error");
-			$response->view = $this->view_500;
+			if ($e instanceof HttpException) {
+				$response->header('HTTP/1.1 '.$e->getCode().' '.$e->getMessage());
+				$response->view = $this->getHttpError($e->getCode());
+			} else {
+				$response->header('HTTP/1.1 500 Internal Server Error');
+				$response->view = $this->getHttpError(500);
+			}
 			$response->data = [
 				'error' => [
 					'code' => $e->getCode(),

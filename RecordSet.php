@@ -1,11 +1,12 @@
 <?php
 namespace Irbis;
+
 use Irbis\RecordSet\Backbone;
 use Irbis\RecordSet\Member;
 use Irbis\RecordSet\Method;
 use Irbis\RecordSet\Property;
 use Irbis\RecordSet\Record;
-
+use Irbis\Exceptions\RecordException;
 
 
 /**
@@ -21,17 +22,8 @@ class RecordSet extends \ArrayObject {
 	private $backbone;
 	private $database;
 	private $mcache = [];
+	private $hidden_properties = [];
 	private static $binds = [];
-
-	public $__is_selecting = false;
-	public $__is_inserting = false;
-	public $__is_updating = false;
-	public $__is_deleting = false;
-	public $__index_before_insert = 0;
-	public $__index_after_insert = 0;
-	public $__parent_record = [false,false]; # [/Irbis/RecordSet/Record, /Irbis/RecordSet/Property]
-	public $__parent_record_execute = [false,false, []]; # [string (sql query), array (values)]
-	public $__children_records = [];
 
 	public function __construct ($name, $pointer = null) {
 		$this->backbone = Backbone::getInstance($name);
@@ -40,66 +32,74 @@ class RecordSet extends \ArrayObject {
 
 	public function __isset ($key) {
 		if ($key == 'ids') return true;
-		if (str_starts_with($key, '__')) return true;
-		return $this->backbone->hasProperty($key);
+		if (str_starts_with($key, '@')) return true;
+		$has = $this->backbone->hasProperty($key);
+		if (!$has && $delegate = $this->{'@delegate'}) {
+			$delegate = $this->{$delegate};
+			return isset($delegate->{$key});
+		} return $has;
 	}
 
-	/**
-	 * @return [ids]
-	 * @return mix, e: $o->__properties : [\Irbis\RecordsSet\Property]
-	 * @return \Irbis\RecordSet\Property
-	 */
 	public function __get ($key) {
 		if ($key == 'ids') {
 			return array_map(function ($i) { 
 				return (int) $i->id;
 			}, (array) $this);
 		}
-		if (str_starts_with($key, '__')) {
-			if ($key == '__properties')
+		if (str_starts_with($key, '@')) {
+			if ($key == '@properties')
 				return $this->backbone->getProperties();
-			if ($key == '__methods')
+			if ($key == '@methods')
 				return $this->backbone->getMethods();
-			if ($key == '__name')
+			if ($key == '@name')
 				return $this->backbone->name;
-			return $this->backbone->statics[$key] ?? null;
+			if ($key == '@backbone')
+				return $this->backbone;
+			if ($key == '@database')
+				return $this->database;
+			return $this->backbone->constans[$key] ?? null;
+		}
+		if (str_starts_with($key, '$')) {
+			return $this->hidden_properties[$key] ?? null;
 		}
 
-		if (!$prop = $this->backbone->getProperties($key))
-			throw new \Exception("recordSet: la propiedad '$key' no existe");
-		return $prop;
+		return $this->backbone->getProperties($key);
 	}
 
 	public function __set ($key, $value) {
-		throw new \Exception("recordset: está tratando de modificar la propiedad '$key'".
+		if (str_starts_with($key, '$'))
+			$this->hidden_properties[$key] = $value;
+		else throw new RecordException("recordset: está tratando de modificar la propiedad '$key'".
 			" de un conjunto de registros, en su lugar utilice el método 'update'");
 	}
 
 	public function __call ($key, $args) {
-		$key = '@'.$key;
-		if (!array_key_exists($key, $this->mcache)) {
-			if (!$this->mcache[$key] = $this->backbone->getMethods($key)) {
-				throw new \Exception("recordset: llamada a metodo no definido '$key'");
+		$skey = '@'.$key;
+		if (!array_key_exists($skey, $this->mcache)) {
+			if (!$this->mcache[$skey] = $this->backbone->getMethods($skey)) {
+				throw new RecordException("recordset: llamada a metodo no definido '$key'");
 			}
 		}
 
-		$r = $this->mcache[$key]->call($args, $this);
-		unset($this->mcache[$key]);
+		$r = $this->mcache[$skey]->call($args, $this);
+		unset($this->mcache[$skey]);
 		return $r;
 	}
 
-	public function __toString () { return \Irbis\Json::encode($this->ids); }
-	public function __debugInfo () {
-		$debug = [
-			'model' => $this->backbone->name,
-			'records' => $this->ids,
-		];
-		if ($this->__parent_record[0])
-			$debug['parent'] = [
-				$this->__parent_record[0]->__name, 
-				$this->__parent_record[1]->name
-			];
+	public function __toString () { 
+		return \Irbis\Json::encode($this->ids); 
+	}
+
+	public function debug () {
+		$debug = [];
+		$debug[$this->backbone->name] = array_map(function ($i) {
+			return $i->debug();
+		}, (array) $this);
 		return $debug;
+	}
+	
+	public function __debugInfo () {
+		return $this->debug();
 	}
 
 	public function newRecordSet ($name = false) {
@@ -107,12 +107,8 @@ class RecordSet extends \ArrayObject {
 		return new self($name, $this->database->name);
 	}
 
-	public function newRecord ($values = [], $is_raw = false) {
-		return new Record($values, [
-			'recordset' => $this,
-			'backbone' => $this->backbone,
-			'database' => $this->database
-		], $is_raw);
+	public function newRecord ($values = []) {
+		return new Record($values, $this);
 	}
 
 	public function flush () {
@@ -132,42 +128,17 @@ class RecordSet extends \ArrayObject {
 		return $newset;
 	}
 
-	public function raw ($ids, $values = []) {
-		$ids = (array) $ids;
-		$count = $this->count();
-		foreach ($ids as $id) {
-			$values = array_merge($values, ['id' => $id]);
-			$this[$count] = $this->newRecord($values, true);
-			$count++;
-		}
-		return $this;
-	}
-
-	public function isRaw () {
-		foreach ($this as $record) {
-			if ($record->isRaw()) return true;
-		} return false;
-	}
-
-	/**
-	 * Ejecuta una consulta y devuelve el statement
-	 * utiliza el conector de base de datos interno
-	 * @param string $query
-	 * @param array $params
-	 * @return DataBaseStatement
-	 */
 	public function execute (string $query, array $params = []) {
+		# Ejecuta una consulta y devuelve el statement
+		# utiliza el conector de base de datos interno
 		$stmt = $this->database->prepare($query);
 		$stmt->execute($params);
 		return $stmt;
 	}
 
-	/**
-	 * Ejecuta una consulta SQL directamente
-	 * para consultas directas, e: CREATE TABLE
-	 * @param string $query
-	 */
 	public function exec (string $query) {
+		# Ejecuta una consulta SQL directamente
+		# para consultas directas, e: CREATE TABLE
 		return $this->database->exec($query);
 	}
 
@@ -175,112 +146,59 @@ class RecordSet extends \ArrayObject {
 	// DML methods
 	// ==========================================================================
 
-	/**
-	 * Convierte un arreglo de busqueda en parte de la sentencia SQL
-	 * devuelve un arreglo con dos valores, el primero es SQL
-	 * el segundo con los valores del arreglo
-	 *
-	 * @param array $arr
-	 *
-	 * @return array[string SQL, array values]
-	 */
-	protected function parseSearchArrayToSQL (array $arr) {
-		if (!$arr) return ['', []];
-		$union = 'and'; $q = []; $w = [];
-		$table = $this->backbone->name;
-	
-		foreach ($arr as $k => $v) {
-			if (gettype($k) == 'integer') {
-				if (is_array($v)) {
-					$pp = $this->parseSearchArrayToSQL($v);
-					$w[] = $pp[0];
-					$q = array_merge($q, $pp[1]);
-				} else $union = $v;
-			} else {
-				$k = explode(":", $k); 
-				$k[1] = $k[1] ?? '=';
-	
-				if ($k[1] == 'between') {
-					$q[] = $v[0];
-					$q[] = $v[1];
-					$w[] = "`$table`.`$k[0]` $k[1] ? and ?";
-				} elseif ($k[1] == 'not in' || $k[1] == 'in') {
-					foreach ($v as $index => $value) $q[] = $value;
-					$w[] = "`$table`.`$k[0]` $k[1] (".implode(', ', array_fill(0, count($v), '?')).")";
-				} else {
-					$q[] = $v;
-					$w[] = "`$table`.`$k[0]` $k[1] ?";
-				}
-			}
-		}
-	
-		return ["(".implode(" $union ", $w).")", $q];
-	}
-
-	/**
-	 * crea registros en la base de datos, realiza un analisis previo
-	 * dato por dato, ejecuta funciones de computación previas y
-	 * calcula valores por defecto.
-	 * 
-	 * para este ejemplo se puede ver que se están agregando dos nuevos
-	 * usuarios en una sola llamada.
-	 * 
-	 * (new RecordSet('user'))
-	 * 		->insert(
-	 * 			['name' => 'Juan'], 
-	 * 			['name' => 'Pedro']
-	 * 		);
-	 * 
-	 * la creación de registros permite anidaciones de registros, 
-	 * permitiendo crear al vuelo registros relacionados.
-	 * 
-	 * (new RecordSet('user'))
-	 * 		->insert(
-	 * 			['name' => 'Juan', 'roles' => [
-	 * 				['name' => 'Administrador'],
-	 * 				['name' => 'Vendedor']
-	 * 			]],
-	 * 			['name' => 'Pedro']
-	 * 		);
-	 */
 	public function insert ($inserts) {
-		if (!$inserts) return $this;
-		if (!is_array($inserts)) throw new \Exception("insert: datos mal formateados");
+		if (!is_array($inserts)) throw new RecordException("datos mal formateados en la inserción");
 		if (is_assoc($inserts)) $inserts = [$inserts];
-		$this->__is_inserting = true;
+		$this->{'$inserting'} = true;
 
 		// ==============================================================
 		// establecer variables auxiliares
 		$fields = []; // campos a insertar
-		$to_insert = []; // valores a insertar
-		$quotes = []; // se llena de ?'s por cada inserción
-		$parent = $this->__parent_record[0];
-		$parent_prop = $this->__parent_record[1];
+		$to_insert = []; // valores a insertar en db
+		$parent = $this->{'$parent_record'};
+		$property = $this->{'$parent_property'};
 		$children = []; // almacena los modelos relacionados
-		$props = $this->backbone->getProperties();
+		$props = $this->{'@properties'}; // propiedades del modelo
 		$x = $this->count(); // el índice para agregar a la pila
 		
-		$this->__index_before_insert = $x;
+		$this->{'$index_before_insert'} = $x;
 		// ==============================================================
 		// valida y calcula los campos a insertar
-		foreach ($inserts as $i => $insert) {			
-			if ($parent and $parent_prop->type == '1n') {
-				$key = $parent_prop->target_property;
-				$insert[$key] = $insert[$key] ?? $parent;
+		foreach ($inserts as $i => $insert) {
+			# Se agrega el registro padre relacionado, si existiera
+			if ($parent and $property->type == '1n') {
+				$key = $property->target_property;
+				$insert[$key] = $parent; // $insert[$key] ?? null;
+			}
+
+			if ($delegate = $this->{'@delegate'}) {
+				if (!array_key_exists($delegate, $insert)) {
+					$set_name = $this
+						->backbone
+						->getProperties($delegate)
+						->target_model;
+					$insert[$delegate] = $this
+						->newRecordSet($set_name)
+						->insert($insert)[0];
+				}
 			}
 
 			$record = $this->newRecord();
 			
+			// ==============================================================
+			// prepara los valores ingresados y valida los tipos
+			// asegura que los valores sean del tipo correcto
 			foreach ($props as $prop) {
 				$key = $prop->name;
 				$insert[$key] = $insert[$key] ?? null;
 				$insert[$key] = $prop->ensureValue($insert[$key], $record);
+				
 				$record->raw($key, $insert[$key]);
-
 				$has_children = in_array($prop->type, ['1n','nm']);
 				$has_children = $has_children && $insert[$key] && $insert[$key]->count();
 				if ($has_children) $children[] = $insert[$key];
 			}
+
 			$this[$x] = $record;
 
 			// ==============================================================
@@ -289,108 +207,98 @@ class RecordSet extends \ArrayObject {
 			foreach ($props as $prop) {
 				$key = $prop->name;
 				if (!$prop->store) continue;
-				# condición para evitar que se dupliquen los nombres de campos
-				if (!$i) $fields[] = "`{$key}`"; // $i == 0
+				if (!$i) $fields[] = "`{$key}`"; // para un $i == 0
 				$to_insert[$x][] = $prop->ensureStoredValue($insert[$key], $record);
 			}
-
-			// genera cadenas de inserción: [['?','?'],['?','?']]
-			$quotes[] = implode(", ", array_fill(0, count($to_insert[$x]), '?'));
 			$x++;
 		}
-		$this->__index_after_insert = $x-1;
+		$this->{'$index_after_insert'} = $x-1;
 
-		// ==============================================================
-		// crear la sentencia SQL para inserción de registros
-		// y los valores que se van a insertar
-		$query = "INSERT INTO `{$this->backbone->name}`".
-			" (".implode(", ", $fields).") VALUES ".
-			" (".implode("), (", $quotes).")";
-
-		$values = array_reduce($to_insert, function ($carry, $item) {
-			return array_merge($carry, $item);
-		}, []);
-
-		if ($parent) {
-			if (!$parent->__is_inserting)
-				$this->__insert($query, $values, $children);
-			else $this->__parent_record_execute = [$query, $values, $children];
-		} else $this->__insert($query, $values, $children);
+		[$query, $params] = $this->backbone->insertQuery($fields, $to_insert);
 		
-		$this->__is_inserting = false;
+		if ($parent && $parent->{'$inserting'}) {
+			$this->{'$save_insert_query'} = $query;
+			$this->{'$save_insert_params'} = $params;
+			$this->{'$save_insert_children'} = $children;
+		} else $this->__insert($query, $params, $children);
+		
+		$this->{'$inserting'} = false;
 		return $this;
 	}
 
-	public function __insert ($query = false, $values = false, $children = []) {
+	public function __insert ($query = false, $params = false, $children = []) {
 		// se preparan y validan valores a ejecutar
-		$query = $query ?: $this->__parent_record_execute[0];
-		$values = $values ?: $this->__parent_record_execute[1];
-		$children = $children ?: $this->__parent_record_execute[2];
+		$query = $query ?: $this->{'$save_insert_query'};
+		$params = $params ?: $this->{'$save_insert_params'};
+		$children = $children ?: $this->{'$save_insert_children'};
+		$parent = $this->{'$parent_record'};
+		$property = $this->{'$parent_property'};
+		$inserted_ids = [];
+		// NOTE: en caso se llame a un hijo que no ejecutó una inserción
+		if (!$query || !$params) return $this;
 
-		if (!$query || !$values) return $this;
-
-		if ($this->__parent_record[0]) {
-			$values = array_map(function ($i) {
-				return $i == '__newid__' ? $this->__parent_record[0]->id : $i;
-			}, $values);
+		if ($parent) {
+			$params = array_map(function ($i) use ($parent) {
+				return $i === '__newid__' ? $parent->id : $i;
+			}, $params);
 		}
-		$this->execute($query, $values);
+
+		$this->execute($query, $params);
 
 		// ==============================================================
 		// actualiza los ultimos ids ingresados
 		// MYSQL devuelve el primer ID de los ultimos registros ingresados
 		if ($this->database->driven == 'mysql') {
 			$id = $this->database->lastInsertId();
-			for ($i = $this->__index_before_insert; $i < $this->__index_after_insert; $i++) {
+			for ($i = $this->{'$index_before_insert'}; $i < $this->{'$index_after_insert'}; $i++) {
 				$this[$i]->raw('id', $id++);
+				$inserted_ids[] = $this[$i]->id;
 			}
 		} else {
 			$id = $this->database->lastInsertId();
-			for ($i = $this->__index_after_insert; $i >= $this->__index_before_insert; $i--) {
+			for ($i = $this->{'$index_after_insert'}; $i >= $this->{'$index_before_insert'}; $i--) {
 				$this[$i]->raw('id', $id--);
+				$inserted_ids[] = $this[$i]->id;
 			}
 		}
 
-		$this->__parent_record_execute = [false,false,[]];
-		$this->__update_nm();
-
-		foreach ($children as $child) {
-			$child->__insert();
-			$child->filter(function ($r) { return $r->isRaw(); })->__select();
+		if ($parent) {
+			// NOTE: no require actualizar registros 1n, porque el valor del padre se agrega al insertar
+			// if ($property->type == '1n')
+			// 	$this->backbone->update_1n($property, $parent, $this, false);
+			if ($property->type == 'nm') {
+				$query = $this->backbone->insertNmQuery($property, $parent, $inserted_ids);
+				$this->exec($query);
+			}
 		}
 
+		if ($children) {
+			foreach ($children as $child) {
+				if ($child->{'$save_insert_query'})
+					$child->__insert();
+				if ($child->{'$selected_ids'})
+					$child->__select();
+			}
+		}
+
+		$this->{'$save_insert_query'} = null;
+		$this->{'$save_insert_params'} = null;
+		$this->{'$save_insert_children'} = null;
 		return $this;
 	}
 
-	/**
-	 * carga registros desde la base de datos, los instancia como
-	 * objetos Irbis\RecordSet\Record y los apila.
-	 * 
-	 * existe un función 'rs' expuesta que envuelve la creación
-	 * de este objeto, para operaciones en una sola linea.
-	 * 
-	 * rs('user')->select(1)
-	 * rs('user')->select([1,2,3,4])
-	 * rs('skel')->select(['or', 
-	 * 		[name:like' => '%pedro%'], 
-	 * 		[age:>=' => 25]
-	 * ])
-	 * 
-	 * @param int|array $where 				id, [ids] o [condiciones]
-	 * @param string|array $order			ordenamiento de registros
-	 * @param string|array $limit 			[0,80] o '0-80'
-	 * @return Irbis\RecordSet\RecordSet
-	 */
 	public function select ($where = null, $order = [], $limit = []) {
-		if ($this->__parent_record[0] && !$where)
-			throw new \Exception("{$this->__name}: este conjunto requiere un condición
-				porque está relacionado a {$this->__parent_record->__name}");
+		$parent = $this->{'$parent_record'};
+		$property = $this->{'$parent_property'};
 
-		if ($where == '__newid__') {
+		if ($parent && !$where)
+			throw new RecordException("{$this->{'@name'}}: este conjunto requiere una condición porque está relacionado a {$parent->{'@name'}}");
+		
+		if ($where === '__newid__') {
 			$this[0] = $this->newRecord();
 			return $this;
 		}
-		// ignorar, código de ayuda, no tiene un proposito
+
 		if ($where instanceof Record) {
 			$where = $where->id;
 		}
@@ -401,7 +309,7 @@ class RecordSet extends \ArrayObject {
 			$where = ['id:=' => intval($where)];
 		elseif ($where !== null && !is_assoc($where)) // ->select([1,2])
 			$where = ['id:in' => $where];
-		
+
 		// forzar que 'order' sea un arreglo
 		$order = is_string($order) ? explode(",", $order) : $order; $self = $this;
 		$order = array_map('trim', $order) ?: ['id'];
@@ -410,81 +318,70 @@ class RecordSet extends \ArrayObject {
 		$limit = is_string($limit) ? explode("-", $limit) : $limit;
 		$limit = array_map('intval', $limit);
 
-		// =====================================================================
-		// preparar la consulta de selección
-		$query = "SELECT `{$this->__name}`.* FROM `{$this->__name}`";
-		$where = $this->parseSearchArrayToSQL($where ?: []);
-		$query .= 
-			($where[0] ? " WHERE {$where[0]}" : "").
-			($order ? " ORDER BY ".implode(", ", $order) : "").
-			($limit ? " LIMIT ".$limit[0].", ".$limit[1] : "");
-
-		// =====================================================================
-		// ejecutar consulta y añadir al conjunto sólo los registros nuevos
-		$stmt = $this->execute($query, $where[1]);
+		[$query, $params] = $this->backbone->selectQuery($where, $order, $limit);
+		$selected_ids = [];
+		$stmt = $this->execute($query, $params);
 		$count = $this->count();
 		$ids = $this->ids;
 
 		while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
 			if (!in_array($row['id'], $ids)) {
 				$this[$count] = $this->newRecord($row);
+				$selected_ids[] = $row['id'];
 				$count++;
 			}
 		}
-
-		$this->__select();
-		$this->__update_nm();
+		
+		if ($parent && $parent->{'$inserting'})
+			$this->{'$selected_ids'} = $selected_ids;
+		else $this->__select($selected_ids);
 		return $this;
 	}
 
-	public function __select () {
-		$parent = $this->__parent_record[0];
-		$parent_prop = $this->__parent_record[1];
-		if ($parent) {
-			if ($parent_prop->type == '1n') {
-				$this->update([
-					$parent_prop->target_property => $parent
-				]);
+	public function __select ($ids=[]) {
+		$parent = $this->{'$parent_record'};
+		$property = $this->{'$parent_property'};
+		$selected_ids = $ids ?: $this->{'$selected_ids'};
+		
+		if (!$parent) return;
+		if ($property->type == '1n') {
+			if ($parent && $parent->{'$updating'}) {
+				$query = $this->backbone->update1nQuery($property, $parent, $selected_ids);
+				try { $this->execute($query, $selected_ids); }
+				catch (\PDOException $e) {
+					# TODO: manejo de errores
+					throw new \Exception("Modelo {$this->{'@name'}}: error al actualizar, el elemento {$property->target_property} no admite valores nulos");
+				}
 			}
+			$this->update([ $property->target_property => $parent->id ]);
 		}
+		if ($property->type == 'nm') {
+			if ($parent && $parent->{'$updating'}) {
+				$query = $this->backbone->deleteNmQuery($property);
+				$this->execute($query, $parent->ids);
+			}
+			$query = $this->backbone->insertNmQuery($property, $parent, $selected_ids);
+			$this->exec($query);
+		}
+
+		$this->{'$selected_ids'} = false;
 	}
 
-	/**
-	 * elimina registros de la base de datos, si no se 
-	 * le pasa parámetros, toma el conjunto de registros actual
-	 * rs('user')->delete([5, 6, 8]);
-	 * 
-	 * @param mixed $ids (optional),		id, [ids] a eliminar
-	 * @return Irbis\RecordSet
-	 */
 	public function delete ($ids = []) {
 		$ids = $ids ? (array) $ids : $this->ids;
 		if (!$ids) return $this;
 
-		$query = "DELETE FROM `{$this->__name}` 
-			WHERE id in (".implode(", ", array_fill(0, count($ids), '?')).")";
+		$query = $this->backbone->deleteQuery($ids);
 		$stmt = $this->execute($query, $ids);
 		# TODO: mejorar la eliminación de registros del arreglo
+		# TODO: plantear la eliminación de registros delegados
 		foreach ($this as $k => $i)
 			if (in_array($i->id, $ids))
 				delete($this, $k);
-
+		# TODO: no elimina los registros relaciones 1n y nm
 		return $this;
 	}
 
-	/**
-	 * actualiza de forma masiva todos los registros cargados
-	 * 
-	 * si se estableció previamente el registro actual con 'record'
-	 * los cambios sólo se aplican sobre ese registro
-	 * 
-	 * si se le envía como segundo parámetro un conjunto de ids
-	 * los cambios sólo se aplican sobre esos registros
-	 * 
-	 * @param array $update,			los datos que deben ser modificados
-	 * @param array $ids,				los ids que deben modificarse
-	 * @return Irbis\RecordSet
-	 */
 	public function update ($update, $ids = []) {
 		$records = $ids ? ($ids instanceof Record ? [$ids] : (array) $ids) : $this;
 		$ids = $ids ? ($ids instanceof Record ? [$ids->id] : (array) $ids) : $this->ids;
@@ -495,14 +392,16 @@ class RecordSet extends \ArrayObject {
 		$fields = []; // campos a actualizar
 		$to_update = []; // valores a actualizar
 		$children = [];
-		$props = $this->backbone->getProperties();
+		$props = $this->{'@properties'}; // propiedades del modelo
+
+		$this->{'$updating'} = true;
 
 		// =====================================================================
 		// recorre todos los registros solicitados, puede ocasionar lentitud en muchos
 		// registros, pero es necesario para los campos computados
 		foreach ($records as $i => $record) {
 			if (!$record instanceof Record)
-				$record = $this->newRecord()->raw('id', intval($record));
+				$record = $records[$i] = $this->newRecord()->raw('id', intval($record));
 
 			foreach ($props as $prop) {
 				if (!array_key_exists($prop->name, $update)) continue;
@@ -514,104 +413,49 @@ class RecordSet extends \ArrayObject {
 				$has_children = $has_children && $update[$key] && $update[$key]->count();
 				if ($has_children) $children[] = $update[$key];
 			}
+		}
 
-			// preparar valores a actualizar
-			foreach ($props as $prop) {
-				if (!array_key_exists($prop->name, $update)) continue;
-				if (!$prop->store) continue;
-				if (!$i) $fields[] = "`$prop->name` = ?";
-				if (!$i) $to_update[] = $prop->ensureStoredValue($update[$prop->name], $record);
-			}
+		// preparar valores a actualizar
+		foreach ($props as $prop) {
+			if (!array_key_exists($prop->name, $update)) continue;
+			if (!$prop->store) continue;
+			$fields[] = $this->backbone->fieldQuery($prop);
+			$to_update[] = $prop->ensureStoredValue($update[$prop->name], $records[0]);
 		}
 
 		// ==============================================================
 		// ejecuta la sentencia de actualizacion
 		if ($fields) {
-			$query = "UPDATE `{$this->backbone->name}` SET ".implode(", ", $fields).
-				" WHERE id in (".implode(", ", array_fill(0, count($ids), '?')).")";
+			$query = $this->backbone->updateQuery($fields, $ids);
 			$this->execute($query, array_merge($to_update, $ids));
 		}
 
-		// ==============================================================
-		foreach ($children as $child) {
-			$child->__select();
-			$child->__update_nm(true);
-		}
-
-		return $this;
-	}
-
-	public function __update_nm ($clean_previous=false) {
-		$parent = $this->__parent_record[0];
-		$prop = $this->__parent_record[1];
-		if ($parent && $prop->type == 'nm') {
-			if ($clean_previous) {
-				$field = $prop->nm1 == $prop->name ? $prop->nm2 : $prop->nm1;
-				$query = "DELETE FROM `{$prop->nm_string}` WHERE `{$field}` = ?";
-				$this->execute($query, [$parent->id]);
+		if ($this->{'@delegate'}) {
+			$delegate = $this->{'@delegate'};
+			foreach ($records as $i => $record) {
+				$record->{$delegate}->update($update);
 			}
-
-			$ins = array_map(function ($i) use ($parent, $prop) {
-				return ($prop->nm1 == $prop->name) ? "$i, {$parent->id}": "{$parent->id}, $i";
-			}, $this->ids);
-			
-			$query = "INSERT OR IGNORE INTO `{$prop->nm_string}` ".
-				"(`{$prop->nm1}`, `{$prop->nm2}`) ".
-				"VALUES (".implode("), (", $ins).")";
-			
-			$this->execute($query);
 		}
+
+		$this->{'$updating'} = false;
 		return $this;
 	}
 
-	/**
-	 * Determina si el nombre del modelo está enlazado, si no está
-	 * lo agrega a la lista, devuelve true o false
-	 */
-	private function isBinded ($model_name) {
+	private function isBinded () {
+		# determina si el modelo está enlazado a la base de datos
+		# si no está enlazado lo agrega a la lista de enlazados
 		$is_binded = False;
-		if (in_array($model_name, self::$binds)) 
+		if (in_array($this->{'@name'}, self::$binds))
 			$is_binded = True;
 		else
-			self::$binds[] = $model_name;
+			self::$binds[] = $this->{'@name'};
 		return $is_binded;
 	}
 
-	/**
-	 * Enlaza el modelo a la base de datos, crea las tablas y relaciones
-	 * necesarias para que el modelo exista en base de datos. 
-	 */
 	public function bind () {
-		$database = $this->database;
-		$table_name = $this->backbone->name;
-
-		if ($this->isBinded($table_name)) 
-			return $this;
-		$pks = []; $fks = [];
-		
-		$database->createTable($table_name);
-
-		foreach ($this->backbone->getProperties() as $prop) {
-			if ($prop->primary_key) $pks[] = $prop;
-
-			if (in_array($prop->type, ['1n','nm','n1'])) {
-				(new self($prop->target_model, $this->database->name))->bind();
-				if ($prop->type == 'nm')
-					$database->createNmTable($table_name, $prop);
-				if ($prop->type == 'n1')
-					$fks[] = $prop;
-			}
-
-			if ($prop->store)
-				$database->addColumn($table_name, $prop);
+		if (!$this->isBinded()) {
+			$this->backbone->bind($this->database);
 		}
-
-		if ($pks)
-			$database->setPrimaryKeys($table_name, $pks);
-
-		foreach ($fks as $prop)
-			$database->setForeignKey($table_name, $prop);
-
 		return $this;
 	}
 }

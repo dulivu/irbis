@@ -15,51 +15,49 @@ use Irbis\RecordSet\Backbone;
 class Record {
 
 	private $recordset;
-	private $database;
-	private $backbone;
-
-	private $is_raw;
 	private $values = [];
 	private $values_previous = [];
-
-	/**
-	 * Auxiliar, almacena los métodos que se estén ejecutando
-	 * @var array
-	 */
 	private $mcache = [];
 
-	public function __construct (array $values, $recordset_data, $is_raw = false) {
-		$this->values = $values;
-		$this->recordset = $recordset_data['recordset'];
-		$this->backbone = $recordset_data['backbone'];
-		$this->database = $recordset_data['database'];
-		$this->is_raw = $is_raw;
+	public function __construct (array $raw, $recordset) {
+		$this->values = $raw;
+		$this->recordset = $recordset;
 	}
 
 	public function __isset ($key) {
-		return !!$this->recordset->{$key};
+		return isset($this->recordset->{$key});
 	}
 
 	public function __get ($key) {
-		if ($key == 'id' and !isset($this->values['id'])) return '__newid__';
+		if ($key == 'id') return $this->values['id'] ?? '__newid__';
 		if ($key == 'ids') return [$this->id];
-		if (str_starts_with($key, '__')) return $this->recordset->{$key};
-
-		$prop = $this->recordset->{$key};
+		if (str_starts_with($key, '@')) return $this->recordset->{$key};
+		if (str_starts_with($key, '$')) return $this->recordset->{$key};
+		
+		$property = $this->recordset->{$key};
 		$value = $this->values[$key] ?? null;
-		$value = $prop->ensureRetrievedValue($value, $this);
-		$this->values[$key] = $value;
-		return $this->values[$key];
+		if (!$property) {
+			if ($this->{'@delegate'}) {
+				$delegate = $this->{'@delegate'};
+				return $this->{$delegate}->{$key};
+			}
+			throw new \Exception("recordset: propiedad '$key' no definida");
+		}
+		return $this->values[$key] = $property->ensureRetrievedValue($value, $this);
 	}
 
 	public function __set ($key, $value) {
-		if ($key == 'id') return;
+		if (str_starts_with($key, '$')) 
+			$this->recordset->{$key} = $value;
 		$this->update([$key => $value]);
 	}
 
 	public function __call ($key, $args) {
+		$backbone = $this->{'@backbone'};
 		if (!array_key_exists($key, $this->mcache)) {
-			if (!$this->mcache[$key] = $this->backbone->getMethods($key)) {
+			if (!$this->mcache[$key] = $backbone->getMethods($key)) {
+				if ($delegate = $this->{'@delegate'})
+					return $this->{$delegate}->{$key}(...$args);
 				throw new \Exception("recordset: llamada a metodo no definido '$key'");
 			}
 		}
@@ -69,13 +67,45 @@ class Record {
 		return $r;
 	}
 
-	public function __toString () { return "".$this->id; }
+	public function __toString () { 
+		return "".$this->id;
+	}
+
+	public function debug ($max_deep = 0) {
+		$properties = $this->recordset->{'@properties'};
+		$debug = []; $current_deep = 0; $max_deep = $max_deep < 0 ? 0 : $max_deep;
+		foreach ($properties as $key => $property) {
+			$debug[$key] = $this->values[$key] ?? null;
+			if ($debug[$key] instanceof Record or $debug[$key] instanceof RecordSet) {
+				if ($current_deep < $max_deep) {
+					$debug[$key] = $debug[$key]->debug($max_deep - 1);
+				} else {
+					$debug[$key] = $debug[$key] instanceof Record ? $debug[$key]->id: $debug[$key]->ids;
+				}
+				$current_deep++;
+			}
+		}
+		return $debug;
+	}
+
 	public function __debugInfo () { 
-		return [$this->backbone->name, $this->values]; 
+		return $this->debug();
 	}
 
 	public function newRecordSet ($name = false) {
-		return new RecordSet($name, $this->database->name);
+		return $this->recordset->newRecordSet($name);
+	}
+
+	public function newRecord ($raw = []) {
+		return $this->recordset->newRecord($raw);
+	}
+
+	public function execute ($query, $params = []) {
+		return $this->recordset->execute($query, $params);
+	}
+
+	public function exec ($query) {
+		return $this->recordset->exec($query);
 	}
 
 	public function raw ($prop_name, $value = null) {
@@ -88,10 +118,6 @@ class Record {
 			$this->values_previous[$prop_name] = $this->values[$prop_name] ?? null;
 			$this->values[$prop_name] = $value;
 		} return $this;
-	}
-
-	public function isRaw () { 
-		return $this->is_raw; 
 	}
 
 	// ==========================================================================
