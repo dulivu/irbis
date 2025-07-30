@@ -6,9 +6,9 @@ if (DEBUG_MODE) {
 	# ini_set('display_startup_errors', 1);
 }
 
-set_error_handler(function (int $errNo, string $errMsg, string $file, int $line) { 
-	throw new \Error("$errMsg", $errNo);
-});
+// set_error_handler(function (int $errNo, string $errMsg, string $file, int $line) { 
+// 	throw new \Error("$errMsg", $errNo);
+// });
 
 /*
 |--------------------------------------------------------------------------
@@ -259,8 +259,10 @@ function pathcheck($path, $separator = DIRECTORY_SEPARATOR) {
 	return $path;
 }
 
-function path_to_namespace ($path) {
-	$path = str_replace(['/', '.php'], ['\\', ''], $path);
+function path_to_namespace ($path, $add_search = [[], []]) {
+	$search = array_merge(['/', '.php'], $add_search[0]);
+	$replace = array_merge(['\\', ''], $add_search[1]);
+	$path = str_replace($search, $replace, $path);
 	if (str_starts_with($path, '\\'))
 		$path = substr($path, 1);
 	return $path;

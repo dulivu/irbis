@@ -51,7 +51,7 @@ class Backbone {
 		Server::getInstance()
 			->forEachController(function ($controller) use ($self) {
 				$file = "models/{$self->name}.php";
-				if ($skeleton = $controller->file($file, Controller::FILE_INCLUDE)) {
+				if ($skeleton = $controller->filePath($file, Controller::FILE_INCLUDE)) {
 					foreach ($skeleton as $key => $value)
 						$self->setMember($key, $value);
 				}

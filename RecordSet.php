@@ -90,16 +90,17 @@ class RecordSet extends \ArrayObject {
 		return \Irbis\Json::encode($this->ids); 
 	}
 
-	public function debug () {
+	public function data () {
 		$debug = [];
-		$debug[$this->backbone->name] = array_map(function ($i) {
-			return $i->debug();
+		if ($this->count() == 0) return $debug;
+		$debug[] = array_map(function ($i) {
+			return $i->data();
 		}, (array) $this);
 		return $debug;
 	}
 	
 	public function __debugInfo () {
-		return $this->debug();
+		return $this->data();
 	}
 
 	public function newRecordSet ($name = false) {

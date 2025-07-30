@@ -71,14 +71,14 @@ class Record {
 		return "".$this->id;
 	}
 
-	public function debug ($max_deep = 0) {
+	public function data ($max_deep = 0) {
 		$properties = $this->recordset->{'@properties'};
 		$debug = []; $current_deep = 0; $max_deep = $max_deep < 0 ? 0 : $max_deep;
 		foreach ($properties as $key => $property) {
 			$debug[$key] = $this->values[$key] ?? null;
 			if ($debug[$key] instanceof Record or $debug[$key] instanceof RecordSet) {
 				if ($current_deep < $max_deep) {
-					$debug[$key] = $debug[$key]->debug($max_deep - 1);
+					$debug[$key] = $debug[$key]->data($max_deep - 1);
 				} else {
 					$debug[$key] = $debug[$key] instanceof Record ? $debug[$key]->id: $debug[$key]->ids;
 				}
@@ -89,7 +89,7 @@ class Record {
 	}
 
 	public function __debugInfo () { 
-		return $this->debug();
+		return $this->data();
 	}
 
 	public function newRecordSet ($name = false) {

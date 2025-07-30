@@ -13,25 +13,14 @@ namespace Irbis;
  * @version		2.0
  */
 class DataBase extends \PDO {
-
-	/**
-	 * Almancena todas las instancias de conexión
-	 * @var array[\Irbis\DataBase]
-	 */
+	# Almancena todas las instancias de conexión
 	private static $instances = array();
-
-	/**
-	 * Almancena el puntero de base de datos
-	 * si se llama a 'getInstance' sin parámetro
-	 * @var string
-	 */
+	# Almancena el puntero de base de datos
+	# si se llama a 'getInstance' sin parámetro
 	public static $pointer = 'main';
-
-	/**
-	 * El nombre de la conexión
-	 * @var string
-	 */
+	# El nombre de la conexión
 	public $name;
+	# El controlador de la conexión
 	public $driven;
 
 	/**
