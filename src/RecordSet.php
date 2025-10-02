@@ -99,7 +99,7 @@ class RecordSet extends \ArrayObject {
 		return $debug;
 	}
 	
-	public function __debugInfo () {
+	public function __debugInfo () : array {
 		return $this->data();
 	}
 
