@@ -22,11 +22,7 @@
     },
 	"autoload": {
         "psr-4": {
-            "Irbis\\": "src/",
-            "Irbis\\Traits\\": "src/Traits/",
-            "Irbis\\RecordSet\\": "src/RecordSet/",
-            "Irbis\\Security\\": "src/Security/",
-            "Irbis\\Cache\\": "src/Cache/"
+            "Irbis\\": "src/"
         }
     },
 	"autoload-dev": {

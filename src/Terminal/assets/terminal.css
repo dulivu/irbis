@@ -1,0 +1,116 @@
+body {
+    background-color: #1e1e1e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    font-family: monospace;
+}
+
+.terminal {
+    background-color: #000;
+    width: 800px;
+    height: 500px;
+    border-radius: 8px;
+    box-shadow: 0px 0px 15px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Barra de título estilo macOS */
+.terminal-header {
+    background-color: #2e2e2e;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    height: 24px;
+}
+
+.terminal-title {
+    flex: 1;
+    text-align: center;   /* texto centrado */
+    font-weight: bold;
+    pointer-events: none; /* evita que se seleccione accidentalmente */
+    user-select: none;
+    color: #aaa;
+    margin-left: -3.75em;
+}
+
+.buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.close { background: #ff5f57; }
+.minimize { background: #ffbd2e; }
+.maximize { background: #28c840; }
+
+.terminal-body {
+    flex: 1;
+    padding: 10px;
+    color: #ccc; /* Texto por defecto */
+    font-size: 14px;
+    overflow-y: auto;
+}
+
+.line {
+    display: flex;
+    align-items: center;
+}
+
+.prompt {
+    color: #ccc;
+    margin-right: 5px;
+}
+
+.input {
+    background: none;
+    border: none;
+    outline: none;
+    color: #ccc;
+    font-family: monospace;
+    font-size: 14px;
+    flex: 1;
+}
+
+.menu {
+    color: #ccc;
+    margin-bottom: 15px;
+}
+.menu h3 {
+    margin: 0 0 5px 0;
+    color: #eee;
+}
+.menu ul {
+    padding-left: 15px;
+    margin: 0;
+}
+.menu li {
+    list-style: none;
+    margin: 2px 0;
+}
+
+.bold { font-weight: bold; }
+.pointer { cursor: pointer; }
+/* Colores alternativos */
+.muted { color: #777; } /* Gris oscuro */
+.success { color: #4caf50; }   /* Verde */
+.error { color: #ff5252; }   /* Rojo */
+.warning { color: #ffbd2e; }   /* Amarillo */
+.info { color: #29b6f6; }   /* Azul claro */
+.cmd { color: #ccc; }   /* Blanco */
+
+@media (max-width: 960px) {
+    .terminal {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+}

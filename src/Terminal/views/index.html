@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Irbis</title>
+  <link rel="stylesheet" href="/Irbis/Terminal/assets/terminal.css">
+</head>
+<body>
+  <div class="terminal">
+    <div class="terminal-header">
+      <div class="buttons">
+        <div class="btn close"></div>
+        <div class="btn minimize"></div>
+        <div class="btn maximize"></div>
+      </div>
+      <div class="terminal-title">Irbis</div>
+    </div>
+    <div class="terminal-body" id="terminal-body">
+      <div class="menu">
+        <p>
+            Bienvenido a <span class="success bold">Irbis</span>, un pequeño <span class="info bold">framework PHP</span> que usa el patrón <span class="info bold">MVC</span><br/>
+            Desde esta terminal puedes configurar tu sistema.
+        </p>
+      </div>
+      <div class="line">
+        <span class="prompt">user@irbis:~$</span>
+        <input type="text" class="input" id="terminal-input" autofocus autocomplete="off"/>
+      </div>
+    </div>
+  </div>
+
+  <script src="/Irbis/Terminal/assets/terminal.js"></script>
+</body>
+</html>

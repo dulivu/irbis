@@ -1,6 +1,8 @@
-# Irbis
+# Irbis Framework
+
 PHP MVC Micro-Framework.
-Fácil de utilizar y enfocado al desarrollo modular conjuntamente con el patrón MVC.
+
+Enfocado en desarrollo modular.
 
 ## Instalación
 + [Composer](https://getcomposer.org/download/) (recomendada):

@@ -2,138 +2,197 @@
 
 namespace Irbis;
 
-use Irbis\RecordSet;
-use Irbis\RecordSet\Record;
+use Irbis\Exceptions\HttpException;
+use Irbis\Interfaces\ResponseInterface;
+use Irbis\Tools\Body;
 
 
 /**
- * Administra rutas coíncidentes con la solicitud del cliente
- * para procesar las respuestas que se deben de entregar
+ * Gestiona la respuesta hacia el cliente
  *
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.2
+ * @version		3.0
  */
 class Response {
-	# la solicitud que originó esta respuesta
-	private $path;
-	# las acciones que puede ejecutar esta respuesta
-	private $actions;
-	# la acción que se ejecutará, se prepara con 'prepareAction()'
-	private $action;
-	# la vista que se enviará al cliente,
-	public $view;
-	# la información que se enviará al cliente
-	public $data;
+    
+    private ?string $path; // la solicitud que originó esta respuesta
+    private ?array $actions; // acciones disponibles
+    private ?Action $action; // acción a ejecutar
+    private ?string $view; // plantilla a renderizar
+    private ?ResponseInterface $body; // cuerpo de la respuesta
+    /**
+     * @exclusive, \Irbis\Server
+     * las respuesta se creen dentro del flujo del servidor
+     * las acciones vienen seleccionadas de los controladores
+     */
+    public function __construct (string $path = '', array $actions = []) {
+        $this->path = $path;
 
-	public function __construct (string $path = null) {
-		$this->path = $path;
-		$this->data = [];
-		$this->actions = [];
-	}
+        if (!empty($actions)) {
+            $this->sortActions($actions);
+        }
 
-	public function __toString () {
-		# NOTE: normalmente se usa para convertir el objeto a texto
-		# este caso, suele presentarse cuando no hay una vista que mostrar
-		$data = $this->data;
-		if (array_key_exists('error', $data))
-			$data = $data['error'];
-		elseif (array_key_exists('response', $data))
-			$data = $data['response'];
-		if (is_array($data))
-			return Json::encode($data);
-		if ($data instanceof RecordSet)
-			return Json::encode($data->data());
-		if ($data instanceof Record)
-			return Json::encode($data->data());
-		return (string)$data;
-	}
+        $this->actions = $actions;
+        $this->body = new Body();
+    }
 
-	public function addAction (Action $action) {
-		$this->actions[] = $action;
-	}
-	public function addActions (array $actions) {
-		foreach ($actions as $action)
-			$this->addAction($action);
-	}
+    /**
+     * @exclusive, \Irbis\Server
+     * convierte la respuesta a texto
+     * server lo usará cuando no haya una vista
+     */
+    public function __toString(): string {
+        return $this->body->toString();
+    }
 
-	public function prepareAction () {
-		# prepara la acción a ejecutar
-		# devuelve 'bool' según haya una acción a ejecutar
-		$this->action = array_pop($this->actions);
-		return $this->action ? true : false;
-	}
+    /**
+     * @exclusive, \Irbis\Server
+     * convierte la respuesta a un array
+     * server lo usa cuando haya una vista
+     */
+    public function __invoke(): array {
+        return [
+            "view" => $this->view,
+            "data" => $this->body->toArray()
+        ];
+    }
 
-	public function executeAction () : Response {
-		$is_template = function ($template) {
-			# valida que un texto sea una plantilla válida
-			return is_string($template) && substr($template, -5) == '.html';
-		};
+    /**
+     * crea y ordena la pila de acciones
+     * la pila se ejecuta en orden LIFO
+     */
+    public function sortActions (array &$actions): void {
+        usort($actions, function ($a, $b) {
+            if (!($a instanceof Action) || !($b instanceof Action))
+                throw new \InvalidArgumentException(
+                    "Los elementos a ordenar deben ser instancias de Action."
+                );
+            // opcionales primero
+            if ($a->isOptional() && !$b->isOptional()) return -1;
+            if (!$a->isOptional() && $b->isOptional()) return 1;
+            // importantes al final
+            if ($a->isImportant() && !$b->isImportant()) return 1;
+            if (!$a->isImportant() && $b->isImportant()) return -1;
+            // mantener orden
+            return 0;
+        });
+    }
 
-		if ($this->action) {
-			$x = $this->action->execute($this);
-			$this->action = null; # nullify
-			if ($x !== null) {
-				# si es un objeto Response, lo retorna
-				if ($x instanceof Response) {
-					if ($this->data) $x->setData($this->data);
-					return $x;
-				}
-				# si es un texto (plantilla), establece la vista
-				if ($is_template($x)) $this->setView($x);
-				# si es un array [view, data], establece la vista y los datos
-				elseif (is_array($x) && !is_assoc($x) && $is_template($x[0] ?? null)) {
-					$this->setView($x[0]);
-					$this->setData('__setdata__', $x[1] ?? []);
-				} 
-				# en otros casos, sólo establece datos
-				else {
-					$this->setView(null);
-					$this->setData('__setdata__', $x);
-				}
-			}
-		}
+    /**
+     * establece una cabecera de respuesta HTTP
+     */
+    public function header ($header, $replace = true, $response_code = 0): void {
+        header($header, $replace, $response_code);
+    }
 
-		return $this;
-	}
+    /**
+     * indica si la respuesta tiene una vista asignada
+     */
+    public function hasView(): bool {
+        return !empty($this->view);
+    }
 
-	// =============================
-	// ==== HELPERS & INTERNALS ====
-	// =============================
+    /**
+     * determina si el valor es una plantilla (termina en .html)
+     */
+    public function isView ($template): bool {
+        return (
+            is_string($template) && 
+            substr($template, -5) == '.html'
+        );
+    }
 
-	public function setView ($view) {
-		$this->view = $view;
-	}
-	public function getView () {
-		return $this->view;
-	}
+    /**
+     * @setter
+     * establece la plantilla a renderizar
+     */
+    public function view (?string $view): void {
+        if ($view === null) {
+            $this->view = null;
+        } else {
+            if (!$this->isView($view))
+                throw new HttpException(
+                    500, 
+                    "invalid response view {$view}."
+                );
+            $this->view = $view;
+        }
+    }
 
-	public function setData ($key, $value = null) {
-		if (is_assoc($key)) {
-			foreach ($key as $k => $v)
-				$this->setData($k, $v, 1);
-		} else {
-			if ($key == '__setdata__') {
-				if (is_assoc($value))
-					foreach ($value as $k => $v) $this->setData($k, $v);
-				else array_set($this->data, 'response', $value);
-			} elseif ($value === null) array_unset($this->data, $key);
-			else array_set($this->data, $key, $value);
-		}
-	}
+    /**
+     * @setter
+     * establece el cuerpo de la respuesta
+     */
+    public function body ($data): void {
+        if (!( $data instanceof ResponseInterface )) {
+            $body = new Body();
+            $body->setData($data);
+        } else { $body = $data; }
 
-	public function getData ($key = null) {
-		if ($key)
-			return array_get($this->data, $key);
-		return $this->data;
-	}
+        $body->merge($this->body);
+        $this->body = $body;
+    }
 
-	public function clearData () {
-		$this->data = [];
-	}
+    /**
+     * agrega un valor a la respuesta
+     */
+    public function append ($key, $value = null): void {
+        $this->body->append($key, $value);
+    }
 
-	public function setHeader ($header, $replace = true, $response_code = 0) {
-		# Establece una cabecera de respuesta
-		header($header, $replace, $response_code);
-	}
+    /**
+     * elimina un valor de la respuesta
+     */
+    public function remove ($key): void {
+        $this->body->remove($key);
+    }
+
+    /**
+     * @exclusive, \Irbis\Server
+     * se saca de la pila la siguiente acción a ejecutar
+     * cada acción se valida antes de ejecutarse
+     * si la accion devuelve un throwable, vuelve a preparar la acción
+     * si no hay acciones disponibles, lanza el error capturado o 404 en su defecto
+     */
+    private function prepareAction($throw = null): void {
+        $this->action = array_pop($this->actions);
+        if (!$this->action)
+            throw $throw ?: new HttpException(404);
+        $throw = $this->action->validate();
+        if ($throw instanceof \Throwable)
+            $this->prepareAction($throw);
+    }
+
+    /**
+     * @exclusive, \Irbis\Server
+     * ejecuta la acción preparada
+     */
+    public function execute() : Response {
+        $this->prepareAction(); // recursivo
+        
+        $x = $this->action->execute($this);
+
+        if ($x !== null) {
+            // si es otro objeto Response, lo retorna
+            if ($x instanceof Response) return $x;
+            // si es un texto (plantilla), establece la vista
+            if ($this->isView($x)) $this->view($x);
+            // si es un array [view, data], establece la vista y los datos
+            elseif (
+                is_array($x) &&
+                count($x) <= 2 &&
+                $this->isView($x[0] ?? null)
+            ) {
+                $this->view($x[0]);
+                $this->body($x[1] ?? []);
+            } else {
+                // cualquier otro valor, lo establece como contenido
+                $this->view(null);
+                $this->body($x);
+            }
+        }
+
+        return $this;
+    }
 }

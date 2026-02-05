@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Error</title>
+        <style>
+            body {
+                background-color: #272727;
+                padding: 10px;
+            }
+            
+            .fakeButtons {
+                height: 10px;
+                width: 10px;
+                border-radius: 50%;
+                border: 1px solid #000;
+                position: relative;
+                top: 6px;
+                left: 6px;
+                background-color: #ff3b47;
+                border-color: #9d252b;
+                display: inline-block;
+            }
+            
+            .fakeMinimize {
+                left: 11px;
+                background-color: #ffc100;
+                border-color: #9d802c;
+            }
+            
+            .fakeZoom {
+                left: 16px;
+                background-color: #00d742;
+                border-color: #049931;
+            }
+            
+            .fakeMenu {
+                width: 850px;
+                box-sizing: border-box;
+                height: 25px;
+                background-color: #bbb;
+                margin: 0 auto;
+                border-top-right-radius: 5px;
+                border-top-left-radius: 5px;
+            }
+            
+            .fakeScreen {
+                background-color: #151515;
+                box-sizing: border-box;
+                width: 850px;
+                margin: 0 auto;
+                padding: 20px;
+                border-bottom-left-radius: 5px;
+                border-bottom-right-radius: 5px;
+            }
+            
+            p, ul {
+                position: relative;
+                left: 20%;
+                margin-left: -8.5em;
+                text-align: left;
+                font-size: 1.25em;
+                font-family: monospace;
+                white-space: nowrap;
+                overflow: hidden;
+            }
+            
+            a { color: #fff; font-weight: bold; }
+            .line1 { color: #9CD9F0; }
+            .line2 { color: #CDEE69; }
+            .line3 { color: #E09690; }
+            .line4 { color: #fff !important; }
+        </style>
+    </head>
+
+    <body>
+        <div class=fakeMenu>
+            <div class="fakeButtons fakeClose"></div>
+            <div class="fakeButtons fakeMinimize"></div>
+            <div class="fakeButtons fakeZoom"></div>
+        </div>
+        <div class="fakeScreen">
+            <p class="line1">Http - 500</p>
+            <p class="line2">
+                Ha ocurrido un error en el servidor.<br/>
+                <a href="/" class="link">Volver al inicio</a>
+            </p>
+            <p class="line3">
+                <span><?php echo $error['class'] ?></span><span>(<?php echo $error['code'] ?>)</span><br/>
+                <span><?php echo $error['message']; ?></span><br/><br/>
+                <span><?php echo $error['file'] ?></span><span>(Línea: <?php echo $error['line'] ?>)</span><br/>
+            </p>
+
+            <?php if ($error['trace']): ?>
+                <p class="line4">
+                    <b>Traza:</b>
+                </p>
+
+                <ul class="line4">
+                <?php foreach ($error['trace'] as $trace): ?>
+                    <li><?php echo $trace ?></li>
+                <?php endforeach;  ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+    </body>
+</html>

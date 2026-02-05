@@ -2,231 +2,420 @@
 
 namespace Irbis;
 
-include 'Constants.php';
-include 'Functions.php';
+include 'Tools/Constants.php';
+include 'Tools/Functions.php';
 
+// autocargador de clases
+// no se cruza con vendor/autoload.php
 irbis_loader();
 
 use Irbis\Traits\Singleton;
 use Irbis\Traits\Events;
 use Irbis\Exceptions\HttpException;
+use Irbis\Tools\ConfigFile;
+use Irbis\Terminal\Controller as TerminalController;
+use Irbis\Interfaces\SetupInterface;
+use Irbis\Interfaces\HooksInterface;
+use Irbis\Orm\Connector;
 
 
 /**
  * Punto de entrada de la aplicación
- * TODO LIST
- * middlewares
+ *
+ * TODO:
  * i18n
  * Cron Jobs
  * 
- * 
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.2
+ * @version		3.0
  */
-
 class Server {
-	use Singleton, Events;
+    use Singleton, Events;
 
-	# closure de renderizado de vistas
-	public $render;
-	# vistas de error HTTP
-	private $http_error_views = [
-		404 => __DIR__.'/404.html',
-		500 => __DIR__.'/500.html',
-	];
-	# Lista de controladores registrados
-	protected $controllers = [];
-	protected $controllers_map = [];
-	# Lista de respuestas a cliente
-	protected $responses = [];
-	protected $responded = False; # FLAG
-	# objeto \Request
-	protected $request;
-	# TODO: opción a implementar
-	protected $middlewares = [];
+    private $http_error_code_views = [];
+    private $setup_was_called = false;
+    private $persistent_state_file;
+    private $render_closure;
+    private $session_resolver;
+    private $request;
+    private $controllers = [];
+    private $controllers_map = [];
+    private $responses = [];
 
-	private function ensureRequest () {
-		# asegura que el objeto 'request' esté inicializado
-		if (!$this->request)
-			$this->request = Request::getInstance();
-	}
+    /**
+     * singleton
+     */
+    private function __construct () {
+        $this->request = Request::getInstance();
+    }
 
-	public function setViewError ($key, $views=false) {
-		# Establece una vista para un error HTTP
-		if (is_array($key)) {
-			foreach ($key as $k => $v) {
-				$this->setViewError($k, $v);
-			}
-		} else {
-			$this->http_error_views[$key] = $views;
-		}
-	}
+    /* --== MÉTODOS DE UTILIDAD ==-- */
 
-	public function getViewError ($key) {
-		# obtiene una vista para un error HTTP
-		if (array_key_exists($key, $this->http_error_views)) {
-			return $this->http_error_views[$key];
-		}
-		# por defecto devuelve la vista de error 500
-		return $this->http_error_views[500];
-	}
+    /**
+     * cambia un estado del servidor
+     */
+    public function setState (string $key, $val) {
+        $this->persistent_state_file->{$key} = $val;
+    }
 
-	public function addController (Controller $controller, string $alias = '') {
-		$this->ensureRequest();
-		$alias = $alias ?: $controller::$name;
-		if (!$alias) throw new \Exception("Un controlador debe tener un nombre ó alias");
+    /**
+     * obtiene un estado del servidor
+     */
+    public function getState (string $key) {
+        return $this->persistent_state_file->{$key};
+    }
 
-		# TODO: control de dependencias, valida que los controladores requeridos
-		# estén previamente registrados, si no lanza un error. Por mejorar
-		foreach ($controller::$depends as $depend) {
-			if (!$this->getController($depend))
-				throw new \Exception("{$controller->key()} requiere previamente: $depend");
-		}
-		
-		# Registrar el controlador en el servidor
-		$key = $controller->namespace();
-		$this->controllers_map[$alias] = $key;
-		$this->controllers[$key] = $controller;
-		# FIRE: lanza evento 'addController'
-		$this->fire('addController', [$controller, $alias]);
-	}
+    /**
+     * guarda el estado del servidor
+     */
+    public function saveState () {
+        $this->persistent_state_file->save();
+    }
 
-	public function getController (string $name) : ?Controller {
-		# Busca el modulo por su alias, si es que existe
-		if (array_key_exists($name, $this->controllers_map))
-			$name = $this->controllers_map[$name];
-		# Devuelve el controlador registrado por su nombre
-		# e: Package/Module => IrbisApps/Base
-		return $this->controllers[$name] ?? null;
-	}
+    /**
+     * un controlador tiene dos formas de ser referenciado:
+     * - por su namespace
+     * - por un nombre corto
+     * ambos valores deben ser únicos
+     */
+    public function addController (Controller $controller, string $name = '') {
+        $name = $name ?: $controller::$name;
+        $key = $controller->namespace();
+        if (!$name) 
+            throw new \Exception("Controller name not declared for $key");
+        if (array_key_exists($name, $this->controllers_map))
+            throw new \Exception("Controller name '$name' already in use");
+        if (array_key_exists($key, $this->controllers))
+            throw new \Exception("Controller '$key' already registered");
+        $this->controllers_map[$name] = $key;
+        $this->controllers[$key] = $controller;
+    }
 
-	public function baseController (Controller $setupController, $preHooks, $postHooks) {
-		# patrón para agregar un controlador maestro
-		$this->ensureRequest();
-		foreach ($preHooks as $pre) {
-			if (!method_exists($setupController, $pre)) {
-				throw new \Exception("El controlador '{$setupController->namespace()}' no tiene el método '{$pre}'");
-			}
-			$setupController->{$pre}();
-		}
+    /**
+     * devuelve un controlador registrado en el servidor
+     * puede ser referenciado por su namespace o por su nombre corto
+     */
+    public function getController (string $name) : ?Controller {
+        if (array_key_exists($name, $this->controllers_map))
+            $name = $this->controllers_map[$name];
+        return $this->controllers[$name] ?? null;
+    }
 
-		$this->addController($setupController);
+    /**
+     * itera sobre los controladores registrados en el servidor
+     * y ejecuta un closure para gestionarlos uno a uno
+     */
+    public function walkControllers (\Closure $fn) {
+        foreach ($this->controllers as $k => $v) $fn($v, $k);
+    }
 
-		foreach ($postHooks as $post) {
-			if (!method_exists($setupController, $post)) {
-				throw new \Exception("El controlador '{$setupController->namespace()}' no tiene el método '{$post}'");
-			}
-			$setupController->{$post}();
-		}
-	}
+    /**
+     * @exclusive, \Irbis\Server
+     * fabrica un controlador a partir de un namespace
+     * este controlador no se registra en el servidor
+     * para ello use ->addController(:Controller)
+     */
+    public static function buildController (string $namespace) : Controller {
+        $namespace = "\\" . str_replace('/', '\\', $namespace).'\Controller';
+        return new $namespace;
+    }
 
-	protected function getResponse (string $path) : Response {
-		if (!array_key_exists($path, $this->responses)) {
-			# Crea un objeto \Response para la ruta
-			$this->responses[$path] = new Response($path);
-			foreach ($this->controllers as $ctrl) {
-				# Obtiene las acciones de cada controlador
-				# que coincidan con la ruta solicitada
-				$actions = $ctrl->getMatchedActions($path);
-				# Y las agrega a la respuesta
-				$this->responses[$path]->addActions($actions);
-			}
-		}
-		# Devuelve el objeto \Response para la ruta
-		return $this->responses[$path];
-	}
+    /* --== MÉTODOS DE FLUJO ==-- */
 
-	public function execute (string $fake_path = '') {
-		# fake_path, se usará para simular una llamada a una ruta
-		$path = $fake_path ?: $this->request->path;
-		
-		$response = $this->getResponse($path);
-		$prepared = $response->prepareAction();
-		# si la petición no viene del cliente, ejecuta y finaliza
-		if ($this->responded || $fake_path) {
-			return $response->executeAction();
-		}
+    /**
+     * establece la configuración por defecto
+     * permite re-configurar el servidor de forma especifica
+     * permite establecer configuraciones desde un único punto de entrada
+     * 
+     * ej:
+     * - $server->setup(); // configuración por defecto
+     * - $server->setup('renderEnvironment', $renderer);
+     * - $server->setup('errorView', 404, '/path/to/view.html);
+     */
+    public function setup (string $setup = '', ...$args) {
+        if (!$this->setup_was_called) {
+            $this->setup_was_called = true;
 
-		try {
-			$this->responded = True; # FLAG: on
-			foreach ($this->controllers as $ctrl) { $ctrl->init(); }
-			# si 'prepared' es false, no hay acciones que ejecutar
-			if (!$prepared) throw new HttpException('Not Found', 404);
-			$response = $response->executeAction();
-		} catch (\Throwable $e) {
-			# En caso de error, prepara la vista por defecto
-			# y formatea los detalles del error
-			if ($e instanceof HttpException) {
-				$response->setHeader("HTTP/1.1 {$e->getCode()} {$e->getMessage()}");
-				$response->setView($this->getViewError($e->getCode()));
-			} else {
-				$response->setHeader("HTTP/1.1 500 Internal Server Error");
-				$response->setView($this->getViewError(500));
-			}
-			
-			$response->setData([
-				'error' => [
-					'code' => $e->getCode(),
-					'message' => $e->getMessage(),
-					'class' => get_class($e),
-					'file' => $e->getFile(),
-					'line' => $e->getLine(),
-					'trace' => DEBUG_MODE ? $e->getTrace() : [],
-				]
-			]);
-		} finally {
-			# FIRE: lanza el evento 'response'
-			$this->fire('response', [&$response]);
-			# Si no hay una vista definida, lanza lo que tenga en datos
-			if (!$response->getView()) die($response."");
-			$this->setRender();
-			$this->doRender($response);
-		}
-		return null;
-	}
+            $this->setupErrorView(404, '@cli/404.html');
+            $this->setupErrorView(500, '@cli/500.html');
+            $this->setupRenderEnvironment(null);
+            $this->setupSessionResolver(null);
+            
+            $this->setupPersistentState();
+            $this->setupControllers();
+            $this->setupMiddlewares();
+        }
 
-	protected function setRender () {
-		# Establece el entorno de renderizado '$this->render'
-		$this->render = $this->render instanceof \Closure ? 
-			$this->render : function ($__path__, $__data__) {
-				extract($__data__);
-				
-				if (!file_exists($__path__)) 
-					throw new \Exception("template '{$__path__}' not found");
-				include($__path__);
-			};
-	}
+        if ($setup) {
+            $method = 'setup'.ucfirst($setup);
+            $this->{$method}(...$args);
+        }
+    }
 
-	protected function doRender (Response $response) {
-		$request = $this->request;
-		$search = [];
-		$replace = [];
+    /**
+     * @exclusive, Irbis\Server
+     * establece la configuración persistente del servidor
+     * crea el archivo de configuración si no existe
+     */
+    private function setupPersistentState () {
+        // inicializa el archivo de configuración, y establece valores por defecto
+        $this->persistent_state_file = new ConfigFile(STATE_FILE);
+        $default = [
+            'server' => [
+                'debug' => 'on',
+                'terminal' => 'on'
+            ],
+            'database' => [
+                'dsn' => 'sqlite:database.db3',
+                'user' => '',
+                'pass' => ''
+            ]
+        ];
 
-		# e: /test?view=index -> views/{view}.html -> views/index.html
-		foreach ($request->query('*', ['view' => DEFAULT_VIEW]) as $k => $v) {
-			if (!is_array($v)) {
-				$search[] = "{{$k}}";
-				$replace[] = $v;
-			}
-		}
-		# e: /test/(:index) -> views/(0).html -> views/index.html
-		foreach ($request->path('*', [0 => DEFAULT_VIEW]) as $k => $v) {
-			$search[] = "($k)";
-			$replace[] = $v;
-		}
+        if ($this->persistent_state_file->isEmpty()) {
+            // inicializa el estado por defecto
+            foreach ($default as $section => $values)
+                foreach ($values as $k => $v)
+                    $this->setState("{$section}.{$k}", $v);
+        } else {
+            // asegurar que exista una conexion a base de datos
+            if (!$this->getState('database.dsn'))
+                foreach ($default['database'] as $k => $v)
+                    $this->setState("database.{$k}", $v);
+        }
+    }
 
-		$render = $this->render->bindTo(null);
-		$render(
-			str_replace($search, $replace, $response->getView()), 
-			$response->getData()
-		);
-	}
-	
-	public function forEachController (\Closure $fn) {
-		# Ejecuta una retrollamada por cada controlador registrado
-		foreach ($this->controllers as $key => $val) {
-			$fn($val, $key);
-		}
-	}
+    /**
+     * @exclusive, Irbis\Server
+     * agrega los controladores por persistencia
+     */
+    private function setupControllers () {
+        $controllers = $this->getState('apps') ?: [];
+        // agrega un controlador de configuracion inicial
+        if ($this->getState('server.terminal') || !count($controllers)) {
+            $this->addController(new TerminalController);
+        }
+        // agrega todos los controladores configurados
+        foreach ($controllers as $name => $namespace) {
+            $controller = $this->buildController($namespace);
+            $this->addController($controller, $name);
+        }
+    }
+
+    /**
+     * @exclusive, Irbis\Server
+     * establece los middlewares de los controladores que tengan uno configurado
+     * útil para establecer configuraciones adicionales, como autenticación, api rest, etc.
+     */
+    private function setupMiddlewares () {
+        $this->walkControllers(function($controller) {
+            $middleware = $controller->component('Setup');
+            if ($middleware instanceof SetupInterface)
+                $middleware->setup();
+        });
+    }
+
+    /**
+     * @reusable, setup('errorView', :int, :string)
+     * establece la vista asociada a un código de error HTTP
+     */
+    private function setupErrorView ($key, $view) {
+        $this->http_error_code_views[intval($key)] = $view;
+    }
+
+    /**
+     * @reusable, setup('renderEnvironment', :Closure|null)
+     * establece el entorno de renderizado
+     */
+    private function setupRenderEnvironment (callable $render = null) {
+        $this->render_closure = $render ?:
+            function ($__view__, $__data__) {
+                // resolver alias de directorio de vistas
+                if (str_starts_with($__view__, '@')) {
+                    $__name__ = explode('/', substr($__view__, 1), 2)[0];
+                    $__ctrl__ = Server::getInstance()->getController($__name__);
+                    $__path__ = $__ctrl__->namespace('dir').'views';
+                    $__view__ = str_replace("@$__name__", $__path__, $__view__);
+                }
+
+                extract($__data__);
+                if (!file_exists($__view__)) 
+                    throw new \Exception("template '{$__view__}' not found");
+                include($__view__);
+            };
+    }
+
+    /**
+     * @reusable, setup('sessionResolver', :Closure|null)
+     * establece el resolvedor de sesión, closure que debe
+     * entregar el usuario autenticado o null si no hay sesión activa
+     */
+    private function setupSessionResolver (callable $resolver = null) {
+        $this->session_resolver = $resolver ?: function() {
+            return null;
+        };
+    }
+
+    /**
+     * @exclusive Irbis\Server
+     * punto de lanzamiento de la aplicación
+     * ejecuta la solicitud del cliente
+     */
+    public function execute () {
+        $path = $this->request->path;
+        $response = $this->buildResponse($path);
+        try {
+            $response = $response->execute();
+
+            Connector::getInstance()->close();
+
+            $this->saveState();
+        } catch (\Throwable $error) {
+            Connector::getInstance()->rollBack();
+            $response->body($error);
+
+            if ($error instanceof HttpException) {
+                $errcode = intval($error->getCode());
+                $response->header($error->getHttpStatus());
+                $response->view($this->http_error_code_views[$errcode] ?? null);
+            } else {
+                $response->header("HTTP/1.1 500 Internal Server Error");
+                $response->view($this->http_error_code_views[500] ?? null);
+            }
+        } finally {
+            $this->fire('response', $response);
+            $this->executeRenderEnvironment($response);
+        }
+    }
+
+    /**
+     * @exclusive, \Irbis\Controller
+     * simula la ejecución de una solicitud de cliente
+     */
+    public function executeFake (string $fake_path) : Response {
+        // para llamadas internas
+        $path = $fake_path ?: $this->request->path;
+        $response = $this->buildResponse($path);
+        return $response->execute();
+    }
+
+    /**
+     * @exclusive, \Irbis\Server
+     * fabrica un objeto de respuesta para una ruta solicitada
+     */
+    private function buildResponse (string $path) : Response {
+        if (!array_key_exists($path, $this->responses)) {
+            // captura las acciones de todos los controladores que coincidan con la ruta
+            $actions = array_merge(...array_map(function ($controller) use ($path) {
+                return $controller->getActionsFor($path);
+            }, array_values($this->controllers)));
+            // crea el objeto respuesta
+            $this->responses[$path] = new Response($path, $actions);
+        }
+        return $this->responses[$path];
+    }
+
+    /**
+     * @exclusive, \Irbis\Server
+     * ejecuta el entorno de renderizado configurado
+     */
+    private function executeRenderEnvironment (Response $response) {
+        if (!$response->hasView()) {
+            die($response."");
+        } else {
+            # e: /test?view=index -> views/{view}.html -> views/index.html
+            $all_query = $this->request->query('*!');
+            $all_query = array_merge(['view' => DEFAULT_VIEW], $all_query);
+            $all_query = array_filter($all_query, function ($v) { return !is_array($v); });
+
+            $search = array_map(function ($v) { return "{{$v}}"; }, array_keys($all_query));
+
+            $data = $response(); // ['view' => ..., 'data' => ...]
+            $data['view'] = str_replace($search, array_values($all_query), $data['view']);
+
+            $render = $this->render_closure->bindTo(null);
+            $render($data['view'], $data['data']);
+        }
+    }
+
+    /**
+     * @exclusive, Irbis\Request
+     * ejecuta el resolusor de sesión configurado
+     */
+    public function executeSessionResolver () {
+        $resolver = $this->session_resolver->bindTo(null);
+        return $resolver();
+    }
+
+    /**
+     * @shourtcut
+     * punto de entrada simplificado a la aplicación
+     */
+    public static function listen () {
+        $server = Server::getInstance();
+        $server->setup();
+        $server->execute();
+        return $server;
+    }
+
+    /**
+     * @exclusive Irbis\Terminal
+     * instala una aplicación (controlador) en el servidor
+     * instala las dependencias del controlador si es necesario
+     * ejecuta el hook de instalación si la aplicación tiene uno
+     */
+    public function installApp (Controller $controller) {
+        $apps = $this->getState('apps') ?: [];
+        // validar dependencias
+        if ($controller::$depends) {
+            // filtrar dependencias faltantes
+            $missing = array_filter(
+                $controller::$depends, 
+                function ($depend) use ($apps) {
+                    return !in_array($depend, $apps);
+                }
+            );
+            // instalar dependencias faltantes
+            if ($missing) {
+                foreach ($missing as $depend) {
+                    $ctrl = $this->buildController($depend);
+                    $this->installApp($ctrl);
+                }
+            }
+        }
+        // agregar controlador y ejecutar hook de instalación
+        $this->addController($controller);
+        $hook = $controller->component('Hooks');
+        if ($hook instanceof HooksInterface) { $hook->install(); }
+        // actualizar estado del servidor
+        $this->setState(
+            "apps.{$controller::$name}", 
+            $controller->namespace()
+        );
+    }
+
+    /**
+     * @exclusive Irbis\Terminal
+     * desinstala una aplicación (controlador) del servidor
+     * ejecuta hooks de desinstalación si la aplicación tiene uno
+     */
+    public function uninstallApp (Controller $controller) {
+        $namespace = $controller->namespace();
+        // validar dependencias inversas
+        $this->walkControllers(function($ctrl) use ($namespace) {
+            if (in_array($namespace, $ctrl::$depends)) {
+                $ns = $ctrl->namespace();
+                throw new \Exception(
+                    "Se encontró una dependencia hacia '{$namespace}'. ".
+                    "Primero desinstale '{$ns}' para poder continuar."
+                );
+            }
+        });
+        // ejecutar hook de desinstalación
+        $hook = $controller->component('Hooks');
+        if ($hook instanceof HooksInterface) { $hook->uninstall(); }
+        // actualizar estado del servidor
+        $this->setState("apps.{$controller::$name}", null);
+    }
 }

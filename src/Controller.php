@@ -2,236 +2,131 @@
 
 namespace Irbis;
 
+use Irbis\Server;
+use Irbis\Tools\ConfigFile;
+use Irbis\Interfaces\ComponentInterface;
 
 /**
- * Clase abstracta, esta se debe heredar para implementar la lógica de la aplicación, 
- * los controladores son los bloques de código que se registran en el servidor,
- * sus métodos pueden representar acciones a rutas cliente
+ * Esta clase se debe heredar para implementar la lógica de la aplicación
+ * Los métodos enrutados '@route' serán accesibles por el cliente
  *
  * @package 	irbis
  * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		2.2
+ * @version		3.0
  */
 abstract class Controller {
 
-	# Configuraciones del controlador a ser heredadas
-	public static $name			= 'controller'; 	# nombre alías del módulo, simple y de una sóla palabra
-	public static $use_routes	= false; 	# determina si el controlador tiene rutas de cliente
-	public static $depends		= []; 		# dependencias de otros modulos namespaces
-	public static $views 		= 'views'; 	# directorio de vistas
+    // características del módulo
+    public static $name			= ''; 	    # nombre alías del módulo, simple y de una sóla palabra
+    public static $routable		= false; 	# determina si el controlador tiene rutas de cliente
+    public static $depends		= []; 		# dependencias de otros modulos namespaces
+    public static $unpackage	= false; 	# true, para aplicaciones que no cumplan con PSR-4
 
-	# Valores de control interno
-	private $_state; # archivo de configuración del módulo, persistencia del estado del módulo
-	private $_namespace; # espacio de nombre único en la aplicación, e: DemoApps/Sample1
-	private $_directory; # directorio fisico donde se encuentra el módulo
-	private $_actions = false; # almacena las rutas en este controlador
+    public ?Server $server = null; # instancia del servidor de la aplicación
+    private $_components = []; # instancias de componentes del controlador
+    private $_namespace; # espacio de nombre único en la aplicación, e: DemoApps/Sample
+    private $_directory; # directorio fisico donde se encuentra el módulo
+    private $_actions; # almacena las acciones mapeadas como rutas de cliente
 
-	# Constantes de comportamiento de algunos métodos
-	const FILE_PATH = 1; # 0001
-	const FILE_CONTENT = 2; # 0010
-	const FILE_INCLUDE = 4; # 0100
-	const FILE_UPLOAD = 8; # 1000
+    public function __construct () {
+        $klass = get_class($this);
+        $s = DIRECTORY_SEPARATOR;
+        $k = array_slice(explode('\\', $klass), 0, -1);
+        $d = BASE_PATH.$s.implode($s, $k);
 
-	public function __construct () {
-		$klass = get_class($this);
-		$s = DIRECTORY_SEPARATOR;
-		$k = array_slice(explode('\\', $klass), 0, -1);
-		$d = BASE_PATH.$s.implode($s, $k);
+        $this->server = Server::getInstance();
+        $this->_namespace = implode('/', $k); # Package/App
+        $this->_directory = static::$unpackage ? 
+            (dirname((new \ReflectionClass($this))->getFileName())) : $d;
+    }
 
-		# inicialización de variables
-		$this->_namespace = implode('/', $k); # IrbisApps/Base
-		$this->_directory = BASE_PATH.$s.implode($s, $k);
-	}
+    /**
+     * devuelve el namespace del controlador
+     */
+    public function namespace (string $format = '') {
+        $namespace = $this->_namespace;
+        if ($format == 'php')
+            return '\\'.str_replace('/', '\\', $namespace).'\\';
+        if ($format == 'snake')
+            return strtolower(str_replace('/', '_', $namespace)).'_';
+        if ($format == 'dir')
+            return $this->_directory.DIRECTORY_SEPARATOR;
+        return $namespace;
+    }
 
-	public function getMatchedActions (string $path) : array {
-		# $path, ruta solicitada por el cliente
-		# este método devuelve una lista de acciones [Irbis/Action]
-		# que coincidan con la solicitud del cliente
-		$matches = [];
+    /**
+     * construye una instancia de la clase
+     * declarada dentro de la aplicación del controlador
+     */
+    public function component ($klass, ...$args) {
+        if (!isset($this->_components[$klass])) {
+            $instance = $this->namespace('php') . $klass;
+            $instance = class_exists($instance) ? new $instance(...$args) : null;
+            if ($instance instanceof ComponentInterface) {
+                $instance->setController($this);
+                $this->_components[$klass] = $instance;
+            } else return $instance;
+        }
+        return $this->_components[$klass];
+    }
 
-		if (!$this::$use_routes)
-			return $matches;
-		$this->registerActions();
+    /**
+     * shortcut para obtener otro controlador de la aplicación
+     */
+    public function application (string $key) {
+        return Server::getInstance()->getController($key);
+    }
 
-		foreach ($this->_actions as $action) {
-			if ($action->match($path)) {
-				$matches[] = $action;
-			}
-		}
+    /**
+     * simula una petición HTTP interna
+     * ya que los métodos enrutados deber ser 'final', no pueden ser sobreescritos
+     * por lo que si se desea extender la funcionalidad de un método enrutado
+     * se declaran otros controladores y se usa este método para llamar al original
+     * e: return $this->super('/ruta/original');
+     */
+    protected function super (string $fake_path = '') {
+        $server = Server::getInstance();
+        return $server->executeFake($fake_path);
+    }
 
-		return $matches;
-	}
+    /**
+     * @exclusive, \Irbis\Server
+     * devuelve las acciones que coinciden con la solicitud del cliente
+     */
+    public function getActionsFor (string $path) : array {
+        $matches = [];
+        if (!$this::$routable)
+            return $matches;
+        if (!$this->_actions)
+            $this->registerActions();
 
-	private function registerActions () {
-		# si las acciones ya fueron registradas, no se vuelve a ejecutar
-		if ($this->_actions) return;
+        foreach ($this->_actions as $action) {
+            if ($action->match($path)) {
+                $matches[] = $action;
+            }
+        }
 
-		# registra las acciones declaradas de este controlador
-		# son acciones que el cliente puede ejecutar
-		$this->_actions = [];
-		$klass = new \ReflectionClass($this);
+        return $matches;
+    }
 
-		$reduce = function ($pm, $mode) {
-			foreach ($pm[0] as $k => $r)
-				if ($pm[1][$k] == $mode)
-					$action[] = $pm[2][$k];
-			return $action ?? [];
-		};
+    /**
+     * @exclusive, \Irbis\Controller
+     * registra las acciones enrutadas de este controlador
+     * son acciones que el cliente puede ejecutar
+     */
+    private function registerActions () {
+        $this->_actions = [];
+        $klass = new \ReflectionClass($this);
 
-		foreach ($klass->getMethods() as $method) {
-			$comment = $method->getDocComment();
-			if (preg_match_all('#@(route|verb) (.*?)\R#', $comment, $pm)) {
-				if (in_array('route', $pm[1])) {
-					$routes = $reduce($pm, 'route');
-					$action = new Action($this, $method->name);
-					$action->setRoutes($routes);
-					if (in_array('verb', $pm[1])) {
-						$verbs = $reduce($pm, 'verb');
-						$action->setVerb($verbs[0]);
-					}
-					$this->_actions[] = $action;
-				}
-			}
-		}
-	}
-
-	public function namespace () {
-		return $this->_namespace;
-	}
-
-	// =============================
-	// ==== HELPERS & INTERNALS ====
-	// =============================
-
-	/**
-	 * Sanitiza rutas de archivo para prevenir path traversal
-	 * @param string $file
-	 * @return string|false
-	 */
-	private function sanitizeFilePath(string $file) {
-		// Eliminar secuencias peligrosas
-		$dangerous = ['../', '..\\', '../', '..\\', '..', '//', '\\\\'];
-		foreach ($dangerous as $pattern) {
-			if (str_contains($file, $pattern)) {
-				return false;
-			}
-		}
-		
-		// Solo permitir caracteres alfanuméricos, guiones, puntos y separadores
-		if (!preg_match('/^[a-zA-Z0-9\-_\.\/\\\\]+$/', $file)) {
-			return false;
-		}
-		
-		// Verificar que no empiece con separador absoluto
-		if (str_starts_with($file, '/') || str_starts_with($file, '\\')) {
-			return false;
-		}
-		
-		return $file;
-	}
-
-	public function init () {}
-
-	public function assemble () {}
-
-	public function state ($key, $val=null) {
-		# permite tener un estado de esta controlador sin usar bd
-		# ayuda en configuraciones y persistencia de datos
-		if (!$this->_state) {
-			$config_file = $this->filePath("controller_state.ini");
-			$this->_state = new ConfigFile($config_file);
-		}
-		if ($val !== null) {
-			# se puede usar la constante REMOVE_STATE 
-			# para eliminar un valor
-			if ($val == REMOVE_STATE)
-				$this->_state->set($key, null);
-			else
-				$this->_state->set($key, $val);
-			return $this;
-		} else return $this->_state->get($key);
-	}
-
-	function writeFile(string $file, string $content) {
-		# escribe un archivo en el directorio del controlador
-		$path = $this->filePath($file, Controller::FILE_PATH);
-		if (!$path) return false;
-		return safe_file_write($path, $content);
-	}
-
-	function uploadFile (string $file, callable $fn) {
-		$controller = $this;
-		if (!Request::hasUploads($file)) return false;
-		Request::forEachUpload($file, function ($upload_data) use ($controller, $fn) {
-			$path = $fn($upload_data);
-			if ($path) {
-				$path = $controller->filePath($path);
-				$path_data = pathinfo($path);
-				if (!is_dir($path_data['dirname']))
-					mkdir($path_data['dirname'], 0777, TRUE);
-				move_uploaded_file($upload_data['tmp_name'], $path);
-			}
-		}, true);
-		return true;
-	}
-
-	public function filePath (string $file = "", $options = 1) {
-		if (!$file) return $this->_directory.DIRECTORY_SEPARATOR;
-		
-		// Seguridad: prevenir path traversal
-		$file = $this->sanitizeFilePath($file);
-		if ($file === false) {
-			throw new \InvalidArgumentException("Ruta de archivo inválida o insegura");
-		}
-		
-		$path = pathcheck($file); # to: path/file.ext
-		$path = [$this->_directory.DIRECTORY_SEPARATOR.$path];
-		$has_wildcard = str_contains($file, '*');
-		if ($has_wildcard)
-			$path = glob($path[0], GLOB_NOSORT|GLOB_BRACE);
-
-		# FILE_PATH = retorna la ruta completa
-		# FILE_CONTENT = retorna el archivo binario para ser modificado
-		# FILE_INCLUDE = incluye el archivo usando include
-		if ($options & Controller::FILE_PATH) {
-			return $has_wildcard ? $path : ($path[0] ?? False);
-		}
-
-		if ($options & Controller::FILE_CONTENT) {
-			$contents = [];
-			foreach ($path as $p) {
-				if (file_exists($p)) {
-					$contents[$p] = file_get_contents($p);
-				} else $contents[$p] = false;
-			}
-			return count($path) != 1 ? $contents : ($contents[$path[0]] ?? false);
-		}
-		
-		if ($options & Controller::FILE_INCLUDE) {
-			$incs = [];
-			foreach ($path as $p) {
-				if (file_exists($p)) {
-					$inc = include($p);
-					$incs[$p] = $inc ?: true;
-				} else $incs[$p] = false;
-			}
-			return count($path) != 1 ? $incs : ($incs[$path[0]] ?? False);
-		}
-
-		return false;
-	}
-
-	// =============================
-	// ========= SHORTCUTS =========
-	// =============================
-	
-	protected function super (string $fake_path = '') {
-		$server = Server::getInstance();
-		return $server->execute($fake_path);
-	}
-
-	protected function controller ($name) : ?Controller {
-		$server = Server::getInstance();
-		return $server->getController($name);
-	}
+        foreach ($klass->getMethods(\ReflectionMethod::IS_FINAL) as $method) {
+            $comment = $method->getDocComment();
+            if ($comment && preg_match_all("#@(\w+)\s+(.*?)\R#", $comment, $pm)) {
+                if (in_array('route', $pm[1])) {
+                    $action = new Action([$this, $method->name]);
+                    $action->pushDecorators($pm[1], $pm[2]);
+                    $this->_actions[] = $action;
+                }
+            }
+        }
+    }
 }
