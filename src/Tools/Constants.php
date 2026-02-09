@@ -42,7 +42,7 @@ if (!defined("DEFAULT_VIEW")) define("DEFAULT_VIEW", 'index');
 | y el método de encriptación por defecto a usar
 |
 */
-if (!defined("CRYPT_KEY")) define("CRYPT_KEY", 'irbis_framework_key_1234');
+if (!defined("CRYPT_KEY")) define("CRYPT_KEY", 'irbis123');
 if (!defined("CRYPT_METHOD")) define("CRYPT_METHOD", 'AES-128-ECB');
 
 /*

@@ -21,4 +21,8 @@ trait Singleton {
     public function __wakeup() {
         throw new \Exception("Cannot unserialize singleton");
     }
+
+    public static function exists() {
+        return self::$instance instanceof self;
+    }
 }

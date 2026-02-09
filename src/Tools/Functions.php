@@ -42,6 +42,12 @@ function irbis_loader (string $base = '') {
 |
 */
 function redirect ($url) {
+    \Irbis\Server::getInstance()->saveState();
+
+    if (\Irbis\Orm\Connector::exists()) {
+        \Irbis\Orm\Connector::getInstance()->commit();
+    }
+
     header('Location: '.$url);
     die('redirecting...');
 }

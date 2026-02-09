@@ -44,7 +44,7 @@ class ConfigFile {
         switch ($value) {
             case 'on': return true;
             case 'off': return false;
-            case is_numeric($value): return intval($value);
+            case is_numeric($value): return floatval($value);
             default: return $value;
         }
     }

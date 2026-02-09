@@ -18,7 +18,6 @@ abstract class Controller {
 
     // características del módulo
     public static $name			= ''; 	    # nombre alías del módulo, simple y de una sóla palabra
-    public static $routable		= false; 	# determina si el controlador tiene rutas de cliente
     public static $depends		= []; 		# dependencias de otros modulos namespaces
     public static $unpackage	= false; 	# true, para aplicaciones que no cumplan con PSR-4
 
@@ -95,8 +94,6 @@ abstract class Controller {
      */
     public function getActionsFor (string $path) : array {
         $matches = [];
-        if (!$this::$routable)
-            return $matches;
         if (!$this->_actions)
             $this->registerActions();
 

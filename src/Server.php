@@ -164,7 +164,7 @@ class Server {
         $default = [
             'server' => [
                 'debug' => 'on',
-                'terminal' => 'on'
+                'terminal' => ''
             ],
             'database' => [
                 'dsn' => 'sqlite:database.db3',
@@ -192,8 +192,11 @@ class Server {
      */
     private function setupControllers () {
         $controllers = $this->getState('apps') ?: [];
+        $terminal = $this->getState('server.terminal');
+        // 0 representa el valor '', sin contraseña
+        if ($terminal === 0) $terminal = true;
         // agrega un controlador de configuracion inicial
-        if ($this->getState('server.terminal') || !count($controllers)) {
+        if ($terminal || !count($controllers)) {
             $this->addController(new TerminalController);
         }
         // agrega todos los controladores configurados
@@ -267,12 +270,12 @@ class Server {
         $response = $this->buildResponse($path);
         try {
             $response = $response->execute();
-
-            Connector::getInstance()->close();
-
+            
             $this->saveState();
+            if (Connector::exists()) {
+                Connector::getInstance()->commit();
+            }
         } catch (\Throwable $error) {
-            Connector::getInstance()->rollBack();
             $response->body($error);
 
             if ($error instanceof HttpException) {
@@ -282,6 +285,10 @@ class Server {
             } else {
                 $response->header("HTTP/1.1 500 Internal Server Error");
                 $response->view($this->http_error_code_views[500] ?? null);
+            }
+
+            if (Connector::exists()) {
+                Connector::getInstance()->rollBack();
             }
         } finally {
             $this->fire('response', $response);

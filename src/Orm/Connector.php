@@ -63,12 +63,6 @@ class Connector extends \PDO {
         } return true;
     }
 
-    public function close () : bool {
-        if ($this->inTransaction()) {
-            parent::commit();
-        } return true;
-    }
-
     public function rollBack ($savepoint = ''): bool {
         if ($this->inTransaction()) {
             if ($savepoint) {
