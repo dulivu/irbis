@@ -30,7 +30,7 @@ class Connector extends \PDO {
     }
 
     private function __construct () {
-        $server = Server::getInstance();
+        $server = Server::instance();
         $o = $server->getState('database') ?: null;
         if (!$o)
             throw new \PDOException("Options is required for database config, check server state file");

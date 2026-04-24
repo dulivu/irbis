@@ -1,16 +1,13 @@
 <?php
-
 namespace Irbis\Traits;
+use Exception;
 
-/**
- * @package 	irbis
- * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		3.0
- */
-trait Singleton {
+trait Singleton 
+{
     private static $instance;
 
-    public static function getInstance(...$params): self {
+    public static function instance(...$params): self 
+    {
         if (!self::$instance instanceof self)
             self::$instance = new self(...$params);
         return self::$instance;
@@ -19,10 +16,11 @@ trait Singleton {
     private function __construct() {}
     private function __clone() {}
     public function __wakeup() {
-        throw new \Exception("Cannot unserialize singleton");
+        throw new Exception("Cannot unserialize singleton");
     }
 
-    public static function exists() {
+    public static function exists() 
+    {
         return self::$instance instanceof self;
     }
 }

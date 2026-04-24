@@ -1,12 +1,9 @@
 <?php
 namespace Irbis\Traits;
+use Closure;
 
-/**
- * @package 	irbis
- * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		3.0
- */
-trait Events {
+trait Events 
+{
     private $events = [];
 
     /**
@@ -14,7 +11,8 @@ trait Events {
      * @param callable $callback Función a ejecutar
      * @param int $priority Prioridad (menor número = mayor prioridad)
      */
-    public function on(string $event, callable $callback, int $priority = 100) {
+    public function on(string $event, callable $callback, int $priority = 50) 
+    {
         $this->events[$event] = $this->events[$event] ?? [];
         $this->events[$event][] = [
             'callback' => $callback,
@@ -30,29 +28,29 @@ trait Events {
      * @param string $event Nombre del evento
      * @param mixed ...$params Parámetros a pasar a los callbacks
      */
-    public function fire(string $event, ...$params) {
-        $return = null;
+    public function fire(string $event, ...$params) 
+    {
         if (isset($this->events[$event])) {
             foreach ($this->events[$event] as $listener) {
                 $callback = $listener['callback'];
                 
                 if (is_callable($callback)) {
-                    if ($callback instanceof \Closure) {
-                        $return = $callback->call($this, ...$params);
+                    if ($callback instanceof Closure) {
+                        $callback->call($this, ...$params);
                     } else {
-                        $return = ($callback) (...$params);
+                        ($callback) (...$params);
                     }
                 }
             }
         }
-        return $return;
     }
 
     /**
      * @param string $event Nombre del evento
      * @param callable|null $callback Callback específico a remover (null = todos)
      */
-    public function off(string $event, ?callable $callback = null) {
+    public function off(string $event, ?callable $callback = null) 
+    {
         if (isset($this->events[$event])) {
             if ($callback === null) {
                 unset($this->events[$event]);

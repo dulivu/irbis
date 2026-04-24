@@ -1,17 +1,9 @@
 <?php
 namespace Irbis\Tools;
+use RuntimeException;
 
 
-/**
- * @package 	irbis
- * @author		Jorge Luis Quico C. <jorge.quico@cavia.io>
- * @version		3.0
- */
 class Json {
-
-	private static $jsonsCache = [];
-	public static $decodeAssoc = true;
-	
 	protected static $_messages = array(
 		JSON_ERROR_NONE => 'JSON, No error has occurred',
 		JSON_ERROR_DEPTH => 'JSON, The maximum stack depth has been exceeded',
@@ -29,12 +21,12 @@ class Json {
 	public static function encode($value, $options = JSON_UNESCAPED_UNICODE) {
 		$result = json_encode($value, $options);
 		if ($result !== false) return $result;
-		throw new \RuntimeException(static::$_messages[json_last_error()]);
+		throw new RuntimeException(static::$_messages[json_last_error()]);
 	}
 
 	public static function decode(string $json, $flags=JSON_OBJECT_AS_ARRAY, $depth=512) {
 		$result = json_decode($json, null, $depth, $flags);
 		if ($result !== null) return $result;
-		throw new \RuntimeException(static::$_messages[json_last_error()]);
+		throw new RuntimeException(static::$_messages[json_last_error()]);
 	}
 }

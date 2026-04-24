@@ -50,7 +50,7 @@ class Backbone {
             'store' => false,
         ]);
 
-        Server::getInstance()
+        Server::instance()
             ->walkControllers(function ($controller) use ($self) {
                 $skeleton = "models".DIRECTORY_SEPARATOR."{$self->name}.php";
                 $skeleton = $controller->namespace('dir').$skeleton;
@@ -69,7 +69,7 @@ class Backbone {
     public function setMember ($key, $value = null) {
         if ($key == '@extend') {
             $this->constans[$key] = $value;
-            $this->setMember(self::getInstance($value));
+            $this->setMember(self::instance($value));
         } elseif ($key instanceof self) {
             foreach ($key->getProperties() as $k => $m)
                 $this->properties[$k] = $m;

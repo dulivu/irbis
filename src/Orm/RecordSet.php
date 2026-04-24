@@ -19,8 +19,8 @@ class RecordSet extends \ArrayObject {
     /* -= magic methods =- */
 
     public function __construct ($name) {
-        $this->database = Connector::getInstance();
-        $this->backbone = Backbone::getInstance($name);
+        $this->database = Connector::instance();
+        $this->backbone = Backbone::instance($name);
     }
 
     public function __isset ($key) {

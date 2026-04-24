@@ -1,97 +1,58 @@
 <?php
 namespace Irbis\Terminal;
-use Irbis\Server;
+use Irbis\Routing\Action;
 use Irbis\Exceptions\HttpException;
-use Irbis\Controller as iController;
+use Irbis\Module\Controller as iController;
+
 
 class Controller extends iController {
 	public static $name         = 'cli';
     public static $unpackage    = true;
 
-    /**
-     * @route ?/
-     */
-    final public function index ($request, $response) {
-        $response->header('Cache-Control: no-cache, no-store, must-revalidate');
-        $response->header('Location: /terminal');
+    #[Action('/', priority: 0)]
+    final public function indexAction ($request, $response) {
+        redirect('/terminal');
     }
 
-    /**
-     * @route /terminal
-     */
+    #[Action('/Irbis/Terminal/assets/{asset}')]
+    final public function assetAction ($request, $response) {
+        $asset = $request->match('asset');
+        $asset = "@cli/assets/{$asset}";
+        $response->file($asset);
+
+        return $response;
+    }
+
+    #[Action('/terminal', 'GET', constraints: AuthorizationConstraint::class)]
     final public function webTerminal ($request, $response) {
-        $server = Server::getInstance();
-        $authorization = $this->component('Authorization');
-        $username = $server->getState('server.owner') ?: 'irbis';
-        $password = $server->getState('server.terminal');
-
-        if ($password) {
-            $auth = $request->header('Authorization');
-            if (!$authorization->verifyAuthorization($auth, $username, $password)) {
-                $authorization->unauthorizedResponse($response);
-                return 'No autorizado';
-            }
-        }
-
-        return '@cli/{view}.html';
+        $response->template('@cli/views/index.html');
+        
+        return $response;
     }
 
-    /**
-     * @route /Irbis/Terminal/assets/(:any)
-     */
-    final public function asset ($request, $response) {
-        $path = $this->namespace('dir') . "assets/" . $request->path(0);
-        if (!file_exists($path)) throw new HttpException(404);
-        $response->header('Content-Length: ' . filesize($path));
-        $response->header('Content-Type: ' . mime_type($path));
-        $response->body(file_get_contents($path));
-    }
-
-    /**
-     * @verb POST
-     * @route /terminal/command
-     */
+    #[Action('/terminal/command', 'POST', constraints: AuthorizationConstraint::class)]
     final public function command ($request, $response) {
-        // validar autorización
-        $server = Server::getInstance();
-        $authorization = $this->component('Authorization');
-        $username = $server->getState('server.owner') ?: 'irbis';
-        $password = $server->getState('server.terminal');
+        $command_text = $request->input('command') ?: '';
+        $command_object = $this->component('CommandComponent');
 
-        if ($password) {
-            $auth = $request->header('Authorization');
-            if (!$authorization->verifyAuthorization($auth, $username, $password)) {
-                $authorization->unauthorizedResponse($response);
-                return 'span.error > No autorizado';
-            }
-        }
-
-        // validar y ejecutar el comando
-        $command = $this->component('Command');
-        if (!$command->validate($request->input('command') ?: ''))
-            return $command->invalid;
-        else {
-            try {
-                return $command->execute();
-            } catch (\Throwable $e) {
-                return "span.error > {$e->getMessage()}";
-            }
+        try {
+            $command_object->set($command_text);
+            return $command_object->execute();
+        } catch (\Throwable $e) {
+            return "span.error > {$e->getMessage()}";
         }
     }
 
-    /**
-     * @route /terminal/nano
-     */
+    #[Action('/terminal/nano', ['GET', 'POST'])]
     final public function nano ($request, $response) {
         // validar autorización
-        $server = Server::getInstance();
-        $authorization = $this->component('Authorization');
-        $username = $server->getState('server.owner') ?: 'irbis';
-        $password = $server->getState('server.terminal');
+        $authorization = $this->component('AuthorizationConstraint');
+        $username = $this->server->getState('server.owner') ?: 'irbis';
+        $password = $this->server->getState('server.terminal');
 
         if ($password) {
-            $auth = $request->header('Authorization');
-            if (!$authorization->verifyAuthorization($auth, $username, $password)) {
+            $auth = $request->getHeader('AuthorizationConstraint');
+            if (!$authorization->verifyAuthorizationConstraint($auth, $username, $password)) {
                 $authorization->unauthorizedResponse($response);
                 return 'No autorizado';
             }
@@ -178,29 +139,26 @@ EOL);
         $template = file_get_contents($this->namespace('dir') . 'views/nano.html');
         $template = str_replace('{file_content}', $file_content, $template);
         
-        $response->header('Content-Type: text/html');
+        $response->setHeader('Content-Type: text/html');
         $response->body($template);
     }
 
-    /**
-     * @route /terminal/sql
-     */
+    #[Action('/terminal/sql')]
     final public function sql ($request, $response) {
         // validar autorización
-        $server = Server::getInstance();
-        $authorization = $this->component('Authorization');
-        $username = $server->getState('server.owner') ?: 'irbis';
-        $password = $server->getState('server.terminal');
+        $authorization = $this->component('AuthorizationConstraint');
+        $username = $this->server->getState('server.owner') ?: 'irbis';
+        $password = $this->server->getState('server.terminal');
 
         if ($password) {
-            $auth = $request->header('Authorization');
-            if (!$authorization->verifyAuthorization($auth, $username, $password)) {
+            $auth = $request->setHeader('AuthorizationConstraint');
+            if (!$authorization->verifyAuthorizationConstraint($auth, $username, $password)) {
                 $authorization->unauthorizedResponse($response);
                 return 'No autorizado';
             }
         }
 
-        $connector = \Irbis\Orm\Connector::getInstance();
+        $connector = \Irbis\Orm\Connector::instance();
         $db_info = $connector->getInfo();
 
         if ($db_info['driver'] !== 'sqlite') {
@@ -233,7 +191,7 @@ EOL);
         $template = str_replace('{query_content}', $query, $template);
         $template = str_replace('{result_content}', $result, $template);
         
-        $response->header('Content-Type: text/html');
+        $response->setHeader('Content-Type: text/html');
         $response->body($template);
     }
 }

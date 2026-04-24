@@ -1,0 +1,17 @@
+<?php
+namespace MyApps\{{APP_NAME}};
+use Irbis\Routing\Action;
+use Irbis\Module\Controller as iController;
+
+class Controller extends iController {
+  public static $name = '{{ALIAS}}';
+  public static $version = '1.0';
+  public static $author = '{{OWNER}}';
+  public static $depends = [];
+  public static $description = '';
+
+  #[Action('/')]
+  final public function index () {
+    return 'Mi nueva aplicación';
+  }
+}

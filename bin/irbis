@@ -1,0 +1,42 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Irbis Framework - CLI Tool
+ * 
+ * Este ejecutable permite gestionar aplicaciones del framework
+ * desde la línea de comandos, tanto en desarrollo local como
+ * dentro de contenedores Docker.
+ */
+
+// Detectar la ruta base del proyecto
+// Desde vendor/dulivu/irbis/bin/irbis → subir 4 niveles
+$base_path = dirname(__DIR__, 4);
+
+// Definir constantes necesarias
+define('BASE_PATH', $base_path);
+define('STATE_FILE', BASE_PATH . '/state.ini');
+
+// Verificar que el autoloader de Composer existe
+$autoload = BASE_PATH . '/vendor/autoload.php';
+if (!file_exists($autoload)) {
+    fwrite(STDERR, "\033[31mError: No se encontró vendor/autoload.php\033[0m\n");
+    fwrite(STDERR, "Asegúrate de ejecutar 'composer install' primero.\n");
+    exit(1);
+}
+
+// Cargar autoloader
+require $autoload;
+
+// Ejecutar la aplicación CLI
+try {
+    $app = new \Irbis\Console\Application();
+    $exitCode = $app->run($argv);
+    exit($exitCode);
+} catch (Throwable $e) {
+    fwrite(STDERR, "\033[31mError fatal: " . $e->getMessage() . "\033[0m\n");
+    if (getenv('DEBUG') === 'true') {
+        fwrite(STDERR, $e->getTraceAsString() . "\n");
+    }
+    exit(1);
+}
