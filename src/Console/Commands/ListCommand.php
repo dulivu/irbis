@@ -28,7 +28,7 @@ class ListCommand extends Command
             $bootstrap = Bootstrap::instance();
             $showAll = $this->hasOption('all');
 
-            $installedApps = $bootstrap->getState('apps') ?: [];
+            $installedApps = $bootstrap->state->get('apps') ?: [];
 
             if ($showAll) {
                 // Mostrar todas las aplicaciones disponibles

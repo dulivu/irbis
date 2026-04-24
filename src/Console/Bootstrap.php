@@ -3,6 +3,7 @@ namespace Irbis\Console;
 
 use Irbis\File\Config as ConfigFile;
 use Irbis\Module\Handler as ControllerHandler;
+use Irbis\Traits\Singleton;
 use Exception;
 
 /**
@@ -11,7 +12,7 @@ use Exception;
  */
 class Bootstrap
 {
-    private static ?self $instance = null;
+    use Singleton;
     
     public readonly ConfigFile $state;
     public readonly ControllerHandler $controllers;
@@ -36,14 +37,6 @@ class Bootstrap
         // Crear handler de controladores (sin pasar Server)
         // Necesitamos una versión simplificada para CLI
         $this->controllers = new ControllerHandler($this);
-    }
-
-    public static function instance(): self
-    {
-        if (self::$instance === null) {
-            self::$instance = new self();
-        }
-        return self::$instance;
     }
 
     /**
@@ -72,21 +65,5 @@ class Bootstrap
         if (!file_exists($state_file) && !is_writable($state_dir)) {
             throw new Exception("No hay permisos de escritura en el directorio: {$state_dir}");
         }
-    }
-
-    /**
-     * Obtiene un valor del estado
-     */
-    public function getState(string $key)
-    {
-        return $this->state->get($key);
-    }
-
-    /**
-     * Guarda el estado
-     */
-    public function saveState(): void
-    {
-        $this->state->save();
     }
 }

@@ -38,7 +38,7 @@ class RemoveCommand extends Command
             $bootstrap = Bootstrap::instance();
 
             // Verificar que la app esté instalada
-            $apps = $bootstrap->getState('apps') ?: [];
+            $apps = $bootstrap->state->get('apps') ?: [];
             
             if (!in_array($namespace, $apps)) {
                 Output::warning("La aplicación '{$namespace}' no está instalada");
@@ -59,7 +59,7 @@ class RemoveCommand extends Command
             // Remover de la lista de apps instaladas
             $apps = array_filter($apps, fn($app) => $app !== $namespace);
             $bootstrap->state->set('apps', array_values($apps));
-            $bootstrap->saveState();
+            $bootstrap->state->save();
 
             $appName = $controller::$name ?? $namespace;
             Output::success("Aplicación '{$appName}' desinstalada correctamente");

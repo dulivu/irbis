@@ -38,7 +38,7 @@ class InfoCommand extends Command
             $controller = $bootstrap->controllers->fromNamespace($namespace);
             
             // Verificar si está instalada
-            $apps = $bootstrap->getState('apps') ?: [];
+            $apps = $bootstrap->state->get('apps') ?: [];
             $isInstalled = in_array($namespace, $apps);
 
             Output::title("Información de la aplicación");

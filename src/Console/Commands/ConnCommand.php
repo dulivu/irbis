@@ -80,7 +80,7 @@ class ConnCommand extends Command
         $bootstrap->state->set('database.dsn', 'sqlite:database.db3');
         $bootstrap->state->set('database.user', '');
         $bootstrap->state->set('database.pass', '');
-        $bootstrap->saveState();
+        $bootstrap->state->save();
 
         Output::success('Conexión a base de datos restaurada a valores por defecto');
         Output::info('DSN: sqlite:database.db3');
@@ -95,9 +95,9 @@ class ConnCommand extends Command
     {
         Output::title('Configuración de base de datos');
 
-        $dsn = $bootstrap->getState('database.dsn') ?? 'No configurado';
-        $user = $bootstrap->getState('database.user') ?? '';
-        $pass = $bootstrap->getState('database.pass') ?? '';
+        $dsn = $bootstrap->state->get('database.dsn') ?? 'No configurado';
+        $user = $bootstrap->state->get('database.user') ?? '';
+        $pass = $bootstrap->state->get('database.pass') ?? '';
 
         Output::line(Output::color('DSN:', 'yellow') . '      ' . $dsn);
         Output::line(Output::color('Usuario:', 'yellow') . '  ' . ($user ?: '(vacío)'));
@@ -113,7 +113,7 @@ class ConnCommand extends Command
     private function setConnection(Bootstrap $bootstrap, string $param, string $value): int
     {
         $bootstrap->state->set("database.{$param}", $value);
-        $bootstrap->saveState();
+        $bootstrap->state->save();
 
         $displayValue = $param === 'pass' ? '********' : $value;
         Output::success("Parámetro '{$param}' actualizado: {$displayValue}");

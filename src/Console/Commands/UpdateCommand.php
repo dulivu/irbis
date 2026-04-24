@@ -38,7 +38,7 @@ class UpdateCommand extends Command
             $bootstrap = Bootstrap::instance();
 
             // Verificar que la app esté instalada
-            $apps = $bootstrap->getState('apps') ?: [];
+            $apps = $bootstrap->state->get('apps') ?: [];
             
             if (!in_array($namespace, $apps)) {
                 Output::warning("La aplicación '{$namespace}' no está instalada");

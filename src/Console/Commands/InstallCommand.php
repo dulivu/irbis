@@ -52,12 +52,12 @@ class InstallCommand extends Command
             }
 
             // Agregar a la lista de apps instaladas
-            $apps = $bootstrap->getState('apps') ?: [];
+            $apps = $bootstrap->state->get('apps') ?: [];
             
             if (!in_array($namespace, $apps)) {
                 $apps[] = $namespace;
                 $bootstrap->state->set('apps', $apps);
-                $bootstrap->saveState();
+                $bootstrap->state->save();
             }
 
             $appName = $controller::$name ?? $namespace;
